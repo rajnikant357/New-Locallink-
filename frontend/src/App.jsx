@@ -62,6 +62,9 @@ const AppRoutes = () => {
 
   return (
     <>
+      <div id="app-debug" style={{position: 'fixed', top: 8, right: 8, background: '#16a34a', color: 'white', padding: '4px 8px', zIndex: 9999, borderRadius: 4, fontSize: 12}}>
+        App running
+      </div>
       <ChatbotButton />
 
       <Suspense fallback={<PageFallback />}>
@@ -111,6 +114,9 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  const base = import.meta.env.BASE_URL || "/";
+  const basename = base === "/" ? "" : base.replace(/\/$/, "");
+
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
@@ -118,7 +124,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <div className="pb-20 [@media(min-width:900px)]:pb-0">
-            <BrowserRouter basename={import.meta.env.MODE === "production" ? "/LocalLink-b1" : ""}>
+            <BrowserRouter basename={basename}>
               <AppRoutes />
             </BrowserRouter>
           </div>
