@@ -31,10 +31,17 @@ const Settings = () => {
     promotions: false,
   });
 
+  const getInitialDarkMode = () => {
+    if (typeof localStorage !== "undefined" && localStorage.getItem("locallink-theme") === "dark") return true;
+    if (typeof document !== "undefined" && document.documentElement.classList.contains("dark")) return true;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) return true;
+    return false;
+  };
+
   const [preferences, setPreferences] = useState({
     language: "en",
     currency: "INR",
-    darkMode: false,
+    darkMode: getInitialDarkMode(),
   });
 
   const [security, setSecurity] = useState({
@@ -112,7 +119,11 @@ const Settings = () => {
   }, [isAuthenticated, user]);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", !!preferences.darkMode);
+    const isDark = !!preferences.darkMode;
+    document.documentElement.classList.toggle("dark", isDark);
+    if (typeof localStorage !== "undefined") {
+      localStorage.setItem("locallink-theme", isDark ? "dark" : "light");
+    }
   }, [preferences.darkMode]);
 
   const handleSaveProfile = async () => {

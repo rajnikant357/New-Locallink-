@@ -7,7 +7,6 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import InstantModeToggle from "./InstantModeToggle";
-import HurryModeDemo from "@/pages/HurryModeDemo";
 import { api } from "@/lib/api";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 
@@ -176,7 +175,7 @@ const Navbar = () => {
                   </Link>
                   {isAuthenticated && (
                     <Link to="/dashboard" className="flex items-center">
-                      <NavbarUserAvatar name={user?.name || "U"} type={user?.type || "customer"} userId={user?.id} />
+                      <NavbarUserAvatar name={user?.name || "U"} />
                     </Link>
                   )}
                 </>

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { api, setAccessToken } from "@/lib/api";
+import { api } from "@/lib/api";
 
 const AuthContext = createContext(undefined);
 
@@ -18,11 +18,8 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         // Don't force-logout on temporary backend throttling/outage.
-        if (error?.status === 401 || error?.status === 403) {
-          setAccessToken(null);
-          if (mounted) {
-            setUser(null);
-          }
+        if (error?.status === 401 || error?.status === 403 && mounted) {
+          setUser(null);
         }
       } finally {
         if (mounted) {
@@ -45,7 +42,6 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ email, password }),
       });
 
-      setAccessToken(response.accessToken);
       setUser(response.user);
       return { error: null };
     } catch (err) {
@@ -60,7 +56,6 @@ export const AuthProvider = ({ children }) => {
         body: JSON.stringify({ name, phone, email, password, type }),
       });
 
-      setAccessToken(response.accessToken);
       setUser(response.user);
       return { error: null };
     } catch (err) {
@@ -74,8 +69,45 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Keep logout resilient even if the request fails.
     }
-    setAccessToken(null);
     setUser(null);
+  };
+
+  const requestPasswordReset = async (email) => {
+    try {
+      const response = await api("/auth/forgot", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      return { error: null, data: response };
+    } catch (err) {
+      return { error: err };
+    }
+  };
+
+  const resetPassword = async (token, password) => {
+    try {
+      const response = await api("/auth/reset", {
+        method: "POST",
+        body: JSON.stringify({ token, password }),
+      });
+      setUser(response.user);
+      return { error: null };
+    } catch (err) {
+      return { error: err };
+    }
+  };
+
+  const socialLogin = async (provider, email, name) => {
+    try {
+      const response = await api("/auth/social", {
+        method: "POST",
+        body: JSON.stringify({ provider, email, name }),
+      });
+      setUser(response.user);
+      return { error: null };
+    } catch (err) {
+      return { error: err };
+    }
   };
 
   const updateCurrentUser = (nextUser) => {
@@ -84,7 +116,18 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider
-      value={{ user, signIn, signUp, signOut, updateCurrentUser, isAuthenticated: !!user, loading }}
+      value={{
+        user,
+        signIn,
+        signUp,
+        signOut,
+        socialLogin,
+        requestPasswordReset,
+        resetPassword,
+        updateCurrentUser,
+        isAuthenticated: !!user,
+        loading,
+      }}
     >
       {children}
     </AuthContext.Provider>

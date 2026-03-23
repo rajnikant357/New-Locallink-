@@ -1,5 +1,26 @@
 import { Link, useNavigate } from "react-router-dom";
-import { Search, MapPin, Zap, Wrench, Hammer, Paintbrush, Sparkles, Shirt, HardHat, Leaf, Star } from "lucide-react";
+import {
+  Search,
+  MapPin,
+  Zap,
+  Wrench,
+  Hammer,
+  Paintbrush,
+  Sparkles,
+  Shirt,
+  HardHat,
+  Leaf,
+  Star,
+  Users,
+  Calendar,
+  MessageSquare,
+  Shield,
+  Target,
+  Heart,
+  TrendingUp,
+  Check,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,8 +85,72 @@ const Home = () => {
     };
   }, []);
 
-  const popularCategories = useMemo(() => categories.filter((item) => item.isActive !== false).slice(0, 6), [categories]);
+  const marqueeItems = useMemo(() => {
+    const active = categories.filter((item) => item.isActive !== false);
+    if (active.length > 0) return active;
+    return [
+      { name: "Electrician", description: "Wiring, fans, lighting" },
+      { name: "Plumber", description: "Leaks, faucets, fittings" },
+      { name: "Carpenter", description: "Furniture, fittings, doors" },
+      { name: "Painter", description: "Interiors & exteriors" },
+      { name: "Cleaner", description: "Deep cleaning & housekeeping" },
+      { name: "Tailor", description: "Alterations & stitching" },
+      { name: "Mason", description: "Civil works & repairs" },
+      { name: "Gardener", description: "Lawn & plant care" },
+      { name: "AC Repair", description: "Cooling & servicing" },
+    ];
+  }, [categories]);
   const availableProviders = useMemo(() => providers.slice(0, 8), [providers]);
+  const pricingPlans = useMemo(() => [
+    {
+      name: "Free",
+      price: "₹0",
+      period: "forever",
+      description: "Perfect for getting started",
+      features: ["List your services", "Basic profile page", "Up to 10 bookings/month", "Email notifications", "Customer reviews"],
+      limitations: ["No priority listing", "No analytics", "Limited support"],
+      cta: "Get Started",
+      popular: false,
+    },
+    {
+      name: "Professional",
+      price: "₹499",
+      period: "per month",
+      description: "Best for growing businesses",
+      features: [
+        "Everything in Free",
+        "Unlimited bookings",
+        "Priority listing in search",
+        "Advanced analytics",
+        "24/7 priority support",
+        "Featured badge",
+        "Custom availability schedule",
+        "Direct messaging",
+      ],
+      limitations: [],
+      cta: "Start Free Trial",
+      popular: true,
+    },
+    {
+      name: "Business",
+      price: "₹999",
+      period: "per month",
+      description: "For established businesses",
+      features: [
+        "Everything in Professional",
+        "Top search placement",
+        "Promotional campaigns",
+        "Team management (up to 5)",
+        "API access",
+        "Custom branding",
+        "Dedicated account manager",
+        "Performance reports",
+      ],
+      limitations: [],
+      cta: "Contact Sales",
+      popular: false,
+    },
+  ], []);
   const hasProviderProfile = useMemo(
     () => (user?.id ? providers.some((provider) => provider.userId === user.id) : false),
     [providers, user?.id],
@@ -94,30 +179,42 @@ const Home = () => {
     <div className="min-h-screen flex flex-col">
       <Navbar />
 
-      <section className="bg-gradient-to-r from-[#467ae9ff] to-[#1d4ed8] text-primary-foreground py-12 md:py-20">
-        <div className="container mx-auto px-3 md:px-4">
-          <div className="max-w-3xl mx-auto text-center">
-            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">Find Local Service Providers Instantly</h1>
-            <p className="text-base md:text-lg lg:text-xl mb-6 md:mb-8 opacity-90">Connect with verified electricians, carpenters, tailors, and more in your area</p>
+      <section className="relative overflow-hidden text-primary-foreground py-12 md:py-20">
+        <img
+          src="/hero_image.png"
+          alt="Hero"
+          className="absolute inset-0 w-full h-full object-cover opacity-75 z-0"
+          loading="lazy"
+        />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#467ae9ff]/85 via-[#467ae9ff]/75 to-[#1d4ed8]/85 mix-blend-multiply z-0 pointer-events-none" />
 
-            <form onSubmit={handleSearch} className="bg-white rounded-lg p-3 md:p-4 shadow-lg">
+        <div className="relative z-10 container mx-auto px-3 md:px-4">
+          <div className="max-w-3xl mx-auto text-center">
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 text-white drop-shadow-[0_4px_10px_rgba(0,0,0,0.35)]">
+              Find Local Service Providers Instantly
+            </h1>
+            <p className="text-base md:text-lg lg:text-xl mb-6 md:mb-8 text-white drop-shadow-[0_3px_8px_rgba(0,0,0,0.35)]">
+              Connect with verified electricians, carpenters, tailors, and more in your area
+            </p>
+
+            <form onSubmit={handleSearch} className="bg-white/95 dark:bg-neutral-900/80 backdrop-blur rounded-lg p-3 md:p-4 shadow-lg border border-border/60">
               <div className="flex flex-col md:flex-row gap-2 md:gap-3">
-                <div className="flex items-center flex-1 border rounded-md px-2 md:px-3 bg-white">
-                  <Search className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                <div className="flex items-center flex-1 border rounded-md px-2 md:px-3 bg-white dark:bg-neutral-900">
+                  <Search className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground dark:text-muted-foreground" />
                   <Input
                     value={serviceQuery}
                     onChange={(event) => setServiceQuery(event.target.value)}
                     placeholder="What service or provider do you need?"
-                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-base"
+                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-base bg-transparent text-foreground"
                   />
                 </div>
-                <div className="flex items-center flex-1 border rounded-md px-2 md:px-3 bg-white">
-                  <MapPin className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground" />
+                <div className="flex items-center flex-1 border rounded-md px-2 md:px-3 bg-white dark:bg-neutral-900">
+                  <MapPin className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground dark:text-muted-foreground" />
                   <Input
                     value={locationQuery}
                     onChange={(event) => setLocationQuery(event.target.value)}
                     placeholder="Search by location"
-                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-base"
+                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-sm md:text-base bg-transparent text-foreground"
                   />
                 </div>
                 <Button type="submit" size="lg" className="md:w-auto h-10 md:h-11">Search</Button>
@@ -127,39 +224,54 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-8 md:py-16 bg-background pb-24 md:pb-16">
+      <section className="relative bg-background py-6 md:py-10 border-b">
+        <style>{`
+          @keyframes marqueeCards {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-50%); }
+          }
+        `}</style>
         <div className="container mx-auto px-3 md:px-4">
-          <div className="flex justify-between items-center mb-4 md:mb-8">
+          <div className="flex justify-between items-center mb-4 md:mb-6">
             <h2 className="text-2xl md:text-3xl font-bold">Popular Categories</h2>
             <Link to="/categories" className="text-primary hover:underline text-sm md:text-base">View all {"->"}</Link>
           </div>
-
-          {loadingData ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-              {Array.from({ length: 6 }).map((_, idx) => (
-                <Card key={idx}><CardContent className="p-3 md:p-6"><Skeleton className="h-20 w-full" /></CardContent></Card>
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 md:gap-4">
-              {popularCategories.map((category) => {
-                const Icon = CATEGORY_ICONS[category.name.toLowerCase()] || DefaultCategoryIcon;
+          <div className="overflow-hidden">
+            <div className="flex gap-4 md:gap-6 animate-[marqueeCards_18s_linear_infinite]">
+              {[...marqueeItems, ...marqueeItems].map((category, idx) => {
+                const Icon =
+                  CATEGORY_ICONS[category.name.toLowerCase?.() || category.name?.toLowerCase()] || DefaultCategoryIcon;
                 return (
-                  <Link key={category.id} to={`/category/${slugifyCategoryName(category.name)}`}>
-                    <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                      <CardContent className="p-3 md:p-6 text-center">
-                        <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-2 md:mb-4 bg-category-bg rounded-full flex items-center justify-center">
-                          <Icon className="h-7 w-7 md:h-8 md:w-8 text-category-icon" />
-                        </div>
-                        <h3 className="font-semibold mb-1 text-sm md:text-base">{category.name}</h3>
-                        <p className="text-[10px] md:text-sm text-muted-foreground">{category.providersCount || 0} providers</p>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <div key={`${category.name}-${idx}`} className="min-w-[220px] md:min-w-[260px]">
+                    <Link to={`/category/${slugifyCategoryName(category.name)}`}>
+                      <Card className="hover:shadow-lg transition-all hover:-translate-y-1 cursor-pointer h-full">
+                        <CardContent className="p-4 md:p-5 flex flex-col gap-2">
+                          <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-category-bg flex items-center justify-center">
+                              <Icon className="h-6 w-6 md:h-7 md:w-7 text-category-icon" />
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-semibold text-sm md:text-base">{category.name}</h3>
+                              <p className="text-[11px] md:text-xs text-muted-foreground line-clamp-2">
+                                {category.description || `Find trusted ${category.name.toLowerCase()} services.`}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center justify-between text-[11px] md:text-xs text-muted-foreground pt-1 border-t">
+                            <span>{category.providersCount || 0} providers</span>
+                            <span className="flex items-center gap-1">
+                              <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+                              <span className="font-semibold text-foreground">{category.averageRating || 0}</span>
+                            </span>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </Link>
+                  </div>
                 );
               })}
             </div>
-          )}
+          </div>
         </div>
       </section>
 
@@ -227,31 +339,230 @@ const Home = () => {
         </div>
       </section>
 
-      <section className="py-8 md:py-16 bg-background">
+      <div className="container mx-auto px-3 md:px-4">
+        <div className="h-px bg-border" />
+      </div>
+
+     
+
+      <section className="py-10 md:py-16 bg-background">
         <div className="container mx-auto px-3 md:px-4">
-          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-12">How LocalLink Works</h2>
+          <div className="max-w-3xl mx-auto text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">About LocalLink</h2>
+            <p className="text-sm md:text-lg text-muted-foreground leading-relaxed">
+              Connecting communities with trusted local service providers. We make it simple to discover, compare,
+              and book reliable professionals for everyday needs.
+            </p>
+          </div>
 
-          <div className="flex flex-row gap-4 md:gap-8 max-w-5xl mx-auto justify-center items-stretch overflow-x-auto scrollbar-hide pb-4" style={{ WebkitOverflowScrolling: "touch" }}>
-            <div className="flex-1 min-w-[140px] md:min-w-[180px] max-w-[160px] md:max-w-[220px] flex flex-col items-center text-center">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center"><span className="text-2xl md:text-3xl font-bold text-primary">1</span></div>
-              <h3 className="text-sm md:text-base font-semibold mb-1">Search Services</h3>
-              <p className="text-[10px] md:text-xs text-muted-foreground">Find the service you need by category or search directly</p>
-            </div>
+          
 
-            <div className="flex-1 min-w-[140px] md:min-w-[180px] max-w-[160px] md:max-w-[220px] flex flex-col items-center text-center">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center"><span className="text-2xl md:text-3xl font-bold text-primary">2</span></div>
-              <h3 className="text-sm md:text-base font-semibold mb-1">Choose Provider</h3>
-              <p className="text-[10px] md:text-xs text-muted-foreground">Compare ratings, prices, and availability to select the best match</p>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Target className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">Our Vision</h3>
+                <p className="text-muted-foreground text-xs md:text-sm">
+                  Become the most trusted service marketplace in every community.
+                </p>
+              </CardContent>
+            </Card>
 
-            <div className="flex-1 min-w-[140px] md:min-w-[180px] max-w-[160px] md:max-w-[220px] flex flex-col items-center text-center">
-              <div className="w-16 h-16 md:w-20 md:h-20 mx-auto mb-2 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center"><span className="text-2xl md:text-3xl font-bold text-primary">3</span></div>
-              <h3 className="text-sm md:text-base font-semibold mb-1">Book & Connect</h3>
-              <p className="text-[10px] md:text-xs text-muted-foreground">Book instantly or schedule for later and connect directly</p>
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Users className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">200+ Providers</h3>
+                <p className="text-muted-foreground text-xs md:text-sm">
+                  Verified professionals ready to serve you.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Heart className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">5000+ Jobs</h3>
+                <p className="text-muted-foreground text-xs md:text-sm">
+                  Completed with high customer satisfaction.
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <TrendingUp className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">4.7 Rating</h3>
+                <p className="text-muted-foreground text-xs md:text-sm">
+                  Average satisfaction across completed jobs.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+ <section className="py-10 md:py-16 bg-background">
+        <div className="container mx-auto px-3 md:px-4">
+          <div className="max-w-3xl mx-auto text-center mb-8 md:mb-12">
+            <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Our Story</h2>
+            <div className="space-y-3 md:space-y-4 text-muted-foreground text-sm md:text-base leading-relaxed">
+              <p>
+                LocalLink started in 2023 in Sikandarpur, Ballia, when our founder struggled to find a reliable electrician.
+                After hours of searching and countless calls, it was clear there needed to be a better way to connect with local service providers.
+              </p>
+              <p>
+                We built LocalLink to solve this—making it easy to find, compare, and book trusted providers nearby. Today we serve thousands of
+                customers and help hundreds of professionals grow their businesses.
+              </p>
+              <p>
+                Quality, transparency, and community drive us. We verify providers, keep pricing fair, and constantly improve based on your feedback.
+              </p>
             </div>
           </div>
         </div>
       </section>
+      <div className="container mx-auto px-3 md:px-4">
+        <div className="h-px bg-border" />
+      </div>
+
+      <section className="py-10 md:py-16 bg-background">
+        <div className="container mx-auto px-3 md:px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-10">How LocalLink Works</h2>
+
+          <div className="max-w-4xl mx-auto space-y-8 md:space-y-12">
+            {[{
+              step: "1",
+              icon: <Search className="h-5 w-5 md:h-6 md:w-6 text-primary" />,
+              title: "Search for Services",
+              body: "Browse categories or use search. Filter by location, availability, price, and ratings to find what you need."
+            },{
+              step: "2",
+              icon: <Users className="h-5 w-5 md:h-6 md:w-6 text-primary" />,
+              title: "Compare Providers",
+              body: "Open provider profiles to check ratings, reviews, skills, experience, and pricing to pick the best fit."
+            },{
+              step: "3",
+              icon: <Calendar className="h-5 w-5 md:h-6 md:w-6 text-primary" />,
+              title: "Book & Schedule",
+              body: "Book instantly when available or schedule for later. Request quotes and confirm details before booking."
+            },{
+              step: "4",
+              icon: <MessageSquare className="h-5 w-5 md:h-6 md:w-6 text-primary" />,
+              title: "Connect Directly",
+              body: "Chat inside LocalLink to clarify requirements, coordinate timing, and keep everything in one place."
+            }].map(({ step, icon, title, body }) => (
+              <div key={step} className="flex flex-col md:flex-row gap-4 md:gap-6 items-start">
+                <div className="w-14 h-14 md:w-16 md:h-16 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-2xl md:text-3xl font-bold text-primary">{step}</span>
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl md:text-2xl font-bold mb-2 md:mb-3 flex items-center gap-2">
+                    {icon}
+                    {title}
+                  </h3>
+                  <p className="text-muted-foreground text-sm md:text-lg leading-relaxed">{body}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-10 md:py-16 bg-background">
+        <div className="container mx-auto px-3 md:px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-10">Simple, Transparent Pricing</h2>
+          <p className="text-center text-muted-foreground max-w-2xl mx-auto mb-8 md:mb-10 text-sm md:text-base">
+            Choose the plan that fits your business—upgrade anytime as you grow.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 max-w-6xl mx-auto">
+            {pricingPlans.map((plan) => (
+              <Card key={plan.name} className={`relative ${plan.popular ? "border-primary shadow-lg md:scale-105" : ""}`}>
+                {plan.popular && (
+                  <div className="absolute -top-3 md:-top-4 left-1/2 transform -translate-x-1/2">
+                    <span className="bg-primary text-primary-foreground px-3 md:px-4 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
+                <CardContent className="p-5 md:p-8">
+                  <h3 className="text-xl md:text-2xl font-bold mb-1 md:mb-2">{plan.name}</h3>
+                  <p className="text-muted-foreground mb-3 md:mb-4 text-sm md:text-base">{plan.description}</p>
+                  <div className="mb-4 md:mb-6">
+                    <span className="text-3xl md:text-4xl font-bold">{plan.price}</span>
+                    <span className="text-muted-foreground text-sm md:text-base">/{plan.period}</span>
+                  </div>
+                  <Button className="w-full mb-4 md:mb-6 h-9 md:h-10 text-sm md:text-base" variant={plan.popular ? "default" : "outline"}>
+                    {plan.cta}
+                  </Button>
+                  <div className="space-y-2 md:space-y-3">
+                    {plan.features.map((feature) => (
+                      <div key={feature} className="flex items-start gap-2">
+                        <Check className="h-4 w-4 md:h-5 md:w-5 text-green-500 flex-shrink-0 mt-0.5" />
+                        <span className="text-xs md:text-sm">{feature}</span>
+                      </div>
+                    ))}
+                    {plan.limitations.map((limitation) => (
+                      <div key={limitation} className="flex items-start gap-2">
+                        <X className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+                        <span className="text-xs md:text-sm text-muted-foreground">{limitation}</span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="py-10 md:py-16 bg-muted/30">
+        <div className="container mx-auto px-3 md:px-4">
+          <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-12">Why Choose LocalLink?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 max-w-5xl mx-auto">
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Shield className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">Verified Providers</h3>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Verified and background-checked providers for peace of mind.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Star className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">Trusted Reviews</h3>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Read real reviews from customers before you book.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4 md:p-6 text-center">
+                <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
+                  <Calendar className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                </div>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">Easy Scheduling</h3>
+                <p className="text-muted-foreground text-sm md:text-base">
+                  Book now or schedule later with flexible booking.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
 
       {showProviderCtaSection && (
         <section className="py-8 md:py-16 bg-gradient-to-l from-[#467ae9ff] to-[#1d4ed8]  text-primary-foreground">
@@ -272,4 +583,3 @@ const Home = () => {
 };
 
 export default Home;
-

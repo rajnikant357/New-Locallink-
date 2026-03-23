@@ -215,6 +215,34 @@ async function ensurePostgres() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_hurry_requests (
+      id TEXT PRIMARY KEY,
+      customer_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
+      service TEXT,
+      location TEXT,
+      budget_min NUMERIC,
+      budget_max NUMERIC,
+      notes TEXT,
+      status TEXT DEFAULT 'pending',
+      matched_provider_id TEXT REFERENCES app_providers(id) ON DELETE SET NULL,
+      expires_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_hurry_responses (
+      id TEXT PRIMARY KEY,
+      request_id TEXT REFERENCES app_hurry_requests(id) ON DELETE CASCADE,
+      provider_id TEXT REFERENCES app_providers(id) ON DELETE CASCADE,
+      provider_user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
+      status TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
   await pool.query(
     `
     INSERT INTO app_categories (id, name, description, subcategories, subcategory_details, is_active)

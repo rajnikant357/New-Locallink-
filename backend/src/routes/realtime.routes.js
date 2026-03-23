@@ -6,7 +6,7 @@ const { addClient, removeClient, writeEvent } = require("../realtime/hub");
 const router = express.Router();
 
 router.get("/stream", async (req, res) => {
-  const token = req.query.token;
+  const token = req.query.token || req.cookies?.ll_access;
 
   if (!token) {
     return res.status(401).json({ message: "Missing token" });

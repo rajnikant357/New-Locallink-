@@ -1,20 +1,16 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useEffect, useState } from "react";
-import { readProfilePhoto } from "@/lib/profile-photo-storage";
+import { useAuth } from "@/contexts/AuthContext";
 
-export default function NavbarUserAvatar({ name, type, userId }) {
-  const initials = name
+export default function NavbarUserAvatar({ name }) {
+  const { user } = useAuth();
+  const initials = (name || "U")
     .split(" ")
     .map((n) => n[0])
     .join("")
     .toUpperCase()
     .slice(0, 2);
-  const [imageUrl, setImageUrl] = useState(undefined);
 
-  useEffect(() => {
-    const saved = readProfilePhoto(type, userId);
-    setImageUrl(saved || undefined);
-  }, [type, userId]);
+  const imageUrl = user?.profileImageUrl;
 
   return (
     <Avatar className="h-7 w-7">

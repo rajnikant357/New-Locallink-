@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Star, MapPin, Search } from "lucide-react";
+import { Star, MapPin, Search, ShieldCheck, SlidersHorizontal } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
@@ -25,11 +25,31 @@ const Providers = () => {
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [categories, setCategories] = useState([]);
+  const categoryParam = searchParams.get("category")?.trim() || "";
+  const ratingParam = searchParams.get("ratingMin")?.trim() || "";
+  const billingParam = searchParams.get("billingType")?.trim() || "";
+  const priceMinParam = searchParams.get("priceMin")?.trim() || "";
+  const priceMaxParam = searchParams.get("priceMax")?.trim() || "";
+  const verifiedParam = searchParams.get("verifiedOnly") === "true";
+
+  const [categoryFilter, setCategoryFilter] = useState(categoryParam);
+  const [ratingFilter, setRatingFilter] = useState(ratingParam);
+  const [billingFilter, setBillingFilter] = useState(billingParam);
+  const [priceMinFilter, setPriceMinFilter] = useState(priceMinParam);
+  const [priceMaxFilter, setPriceMaxFilter] = useState(priceMaxParam);
+  const [verifiedOnly, setVerifiedOnly] = useState(verifiedParam);
 
   useEffect(() => {
     setServiceInput(query);
     setLocationInput(locationQuery);
-  }, [query, locationQuery]);
+    setCategoryFilter(categoryParam);
+    setRatingFilter(ratingParam);
+    setBillingFilter(billingParam);
+    setPriceMinFilter(priceMinParam);
+    setPriceMaxFilter(priceMaxParam);
+    setVerifiedOnly(verifiedParam);
+  }, [query, locationQuery, categoryParam, ratingParam, billingParam, priceMinParam, priceMaxParam, verifiedParam]);
 
   useEffect(() => {
     let mounted = true;
@@ -42,6 +62,12 @@ const Providers = () => {
         const params = new URLSearchParams();
         if (query) params.set("q", query);
         if (locationQuery) params.set("location", locationQuery);
+        if (categoryParam) params.set("category", categoryParam);
+        if (ratingParam) params.set("ratingMin", ratingParam);
+        if (priceMinParam) params.set("priceMin", priceMinParam);
+        if (priceMaxParam) params.set("priceMax", priceMaxParam);
+        if (billingParam) params.set("billingType", billingParam);
+        if (verifiedParam) params.set("verifiedOnly", "true");
 
         const response = await api(params.size ? `/providers?${params.toString()}` : "/providers");
         if (mounted) {
@@ -62,7 +88,21 @@ const Providers = () => {
     return () => {
       mounted = false;
     };
-  }, [query, locationQuery]);
+  }, [query, locationQuery, categoryParam, ratingParam, priceMinParam, priceMaxParam, verifiedParam]);
+
+  useEffect(() => {
+    let mounted = true;
+    api("/categories")
+      .then((res) => {
+        if (mounted) setCategories((res.categories || []).filter((c) => c.isActive !== false));
+      })
+      .catch(() => {
+        if (mounted) setCategories([]);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   const handleAuthRequired = () => {
     toast({
@@ -79,14 +119,26 @@ const Providers = () => {
     const params = new URLSearchParams();
     const nextQuery = serviceInput.trim();
     const nextLocation = locationInput.trim();
+    const nextCategory = categoryFilter.trim();
+    const nextRating = ratingFilter.trim();
+    const nextPriceMin = priceMinFilter.trim();
+    const nextPriceMax = priceMaxFilter.trim();
+    const nextBilling = billingFilter.trim();
 
     if (nextQuery) params.set("q", nextQuery);
     if (nextLocation) params.set("location", nextLocation);
+    if (nextCategory) params.set("category", nextCategory);
+    if (nextRating) params.set("ratingMin", nextRating);
+    if (nextPriceMin) params.set("priceMin", nextPriceMin);
+    if (nextPriceMax) params.set("priceMax", nextPriceMax);
+    if (nextBilling) params.set("billingType", nextBilling);
+    if (verifiedOnly) params.set("verifiedOnly", "true");
 
     setSearchParams(params);
   };
 
-  const hasSearchCriteria = Boolean(query || locationQuery);
+  const hasFilters = Boolean(categoryParam || ratingParam || priceMinParam || priceMaxParam || verifiedParam);
+  const hasSearchCriteria = Boolean(query || locationQuery || hasFilters);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -102,28 +154,118 @@ const Providers = () => {
           </div>
 
           <Card>
-            <CardContent className="p-4">
-              <form onSubmit={handleSearchSubmit} className="flex flex-col md:flex-row gap-3">
-                <div className="flex items-center flex-1 rounded-md border px-3 bg-white">
-                  <Search className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={serviceInput}
-                    onChange={(event) => setServiceInput(event.target.value)}
-                    placeholder="Search by provider name, service, or skill"
-                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
+            <CardContent className="p-4 space-y-3">
+              <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div className="flex items-center rounded-md border px-3 bg-white">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={serviceInput}
+                      onChange={(event) => setServiceInput(event.target.value)}
+                      placeholder="Search by provider name, service, or skill"
+                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
+                  <div className="flex items-center rounded-md border px-3 bg-white">
+                    <MapPin className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={locationInput}
+                      onChange={(event) => setLocationInput(event.target.value)}
+                      placeholder="Location"
+                      className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
                 </div>
-                <div className="flex items-center flex-1 rounded-md border px-3 bg-white">
-                  <MapPin className="h-4 w-4 text-muted-foreground" />
-                  <Input
-                    value={locationInput}
-                    onChange={(event) => setLocationInput(event.target.value)}
-                    placeholder="Location"
-                    className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  />
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Category</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                    >
+                      <option value="">All categories</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Min rating</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={ratingFilter}
+                      onChange={(e) => setRatingFilter(e.target.value)}
+                    >
+                      <option value="">Any</option>
+                      {[5, 4, 3, 2, 1].map((r) => (
+                        <option key={r} value={r}>{r}+</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Billing</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={billingFilter}
+                      onChange={(e) => setBillingFilter(e.target.value)}
+                    >
+                      <option value="">Any</option>
+                      <option value="hourly">Per hour</option>
+                      <option value="day">Per day</option>
+                      <option value="visit">Per visit</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">Price range</label>
+                    <select
+                      className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={`${priceMinFilter || ""}-${priceMaxFilter || ""}`}
+                      onChange={(e) => {
+                        const [min, max] = e.target.value.split("-").map((v) => v || "");
+                        setPriceMinFilter(min);
+                        setPriceMaxFilter(max);
+                      }}
+                    >
+                      <option value="-">Any</option>
+                      <option value="0-500">₹0 - ₹500</option>
+                      <option value="500-1000">₹500 - ₹1,000</option>
+                      <option value="1000-2500">₹1,000 - ₹2,500</option>
+                      <option value="2500-5000">₹2,500 - ₹5,000</option>
+                      <option value="5000-">₹5,000+</option>
+                    </select>
+                  </div>
                 </div>
-                <Button type="submit">Search</Button>
-                <Button type="button" variant="outline" onClick={() => setSearchParams(new URLSearchParams())}>Clear</Button>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={verifiedOnly}
+                      onChange={(e) => setVerifiedOnly(e.target.checked)}
+                    />
+                    <span className="flex items-center gap-1"><ShieldCheck className="h-4 w-4" /> Verified only</span>
+                  </label>
+                  <div className="flex gap-2 ml-auto">
+                    <Button type="button" variant="outline" onClick={() => {
+                      setServiceInput("");
+                      setLocationInput("");
+                      setCategoryFilter("");
+                      setRatingFilter("");
+                      setBillingFilter("");
+                      setPriceMinFilter("");
+                      setPriceMaxFilter("");
+                      setVerifiedOnly(false);
+                      setSearchParams(new URLSearchParams());
+                    }}>
+                      Clear
+                    </Button>
+                    <Button type="submit"><SlidersHorizontal className="h-4 w-4 mr-2" />Apply</Button>
+                  </div>
+                </div>
               </form>
             </CardContent>
           </Card>

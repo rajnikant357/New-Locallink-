@@ -86,7 +86,7 @@ const env = {
   refreshTokenSecret: required("REFRESH_TOKEN_SECRET", "dev_refresh_secret_change_me_1234567890123456789"),
   accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || "7d",
-  corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:8080")
+  corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:8080,http://localhost:5173")
     .split(",")
     .map((origin) => origin.trim())
     .filter(Boolean),

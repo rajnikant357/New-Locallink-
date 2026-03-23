@@ -34,6 +34,8 @@ const updateMeSchema = z.object({
       phone: z.string().trim().min(7).max(20).optional(),
       location: z.string().trim().max(120).optional(),
       email: z.string().trim().toLowerCase().email().optional(),
+      // allow larger data URLs; capped at ~10MB string length
+      profileImageUrl: z.string().trim().max(10_000_000).optional(),
     })
     .refine((value) => Object.keys(value).length > 0, "At least one field is required"),
   params: z.object({}).optional(),

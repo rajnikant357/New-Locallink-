@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Navbar from "@/components/Navbar";
-import ChatbotButton from "@/components/ChatbotButton";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -39,6 +38,7 @@ const ProviderDashboard = () => {
   const location = useLocation();
   const [providerProfile, setProviderProfile] = useState(null);
   const [bookings, setBookings] = useState([]);
+  const [hurryRequests, setHurryRequests] = useState([]);
   const [socialDraft, setSocialDraft] = useState(emptySocialLinks);
   const [savingSocialLinks, setSavingSocialLinks] = useState(false);
 
@@ -79,6 +79,7 @@ const ProviderDashboard = () => {
   const completed = myBookings.filter((item) => item.status === "completed").length;
   const active = myBookings.filter((item) => ["requested", "accepted"].includes(item.status)).length;
   const earnings = completed * Number(providerProfile?.priceMin || 0);
+  const visibleHurryRequests = hurryRequests.filter((item) => item.status === "pending");
 
   const handleSignOut = () => {
     signOut();
@@ -136,6 +137,16 @@ const ProviderDashboard = () => {
     }
   };
 
+  const acceptHurry = async (requestId) => {
+    try {
+      const response = await api(`/hurry/${requestId}/accept`, { method: "POST" });
+      setHurryRequests((prev) => prev.map((item) => (item.id === requestId ? response.hurry : item)));
+      toast({ title: "Accepted Hurry request" });
+    } catch (err) {
+      toast({ title: "Action failed", description: err?.message || "Could not accept request.", variant: "destructive" });
+    }
+  };
+
   useRealtimeEvents((eventName, payload) => {
     if ((eventName === "booking.new" || eventName === "booking.updated") && payload?.booking) {
       const incoming = payload.booking;
@@ -146,6 +157,19 @@ const ProviderDashboard = () => {
         }
         return [incoming, ...prev];
       });
+    }
+
+    if (eventName === "hurry.new" && payload?.request) {
+      setHurryRequests((prev) => {
+        const exists = prev.some((item) => item.id === payload.request.id);
+        return exists ? prev : [payload.request, ...prev];
+      });
+    }
+    if (eventName === "hurry.cancelled" && payload?.request) {
+      setHurryRequests((prev) => prev.map((item) => (item.id === payload.request.id ? payload.request : item)));
+    }
+    if (eventName === "hurry.accepted" && payload?.request) {
+      setHurryRequests((prev) => prev.map((item) => (item.id === payload.request.id ? payload.request : item)));
     }
   });
 
@@ -158,7 +182,7 @@ const ProviderDashboard = () => {
       <div className="flex-1 py-12 bg-muted/30">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex flex-col md:flex-row items-start md:items-center gap-6">
-            <ProfilePicture name={user.name} type="provider" userId={user.id} editable />
+            <ProfilePicture name={user.name} editable />
             <div className="flex-1">
               <span className="text-4xl font-bold mb-2">{user.name}</span>
               <p className="text-muted-foreground">Welcome back, {user.name}</p>
@@ -191,6 +215,39 @@ const ProviderDashboard = () => {
             </TabsList>
 
             <TabsContent value="requests" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Hurry Mode (live)</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {visibleHurryRequests.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No live Hurry requests right now.</p>
+                  ) : (
+                    visibleHurryRequests.map((req) => (
+                      <div key={req.id} className="border rounded-lg p-3 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold">{req.service}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-2">
+                              <MapPin className="h-4 w-4" />
+                              {req.location}
+                            </p>
+                          </div>
+                          <Badge>pending</Badge>
+                        </div>
+                        <div className="flex gap-3 text-sm text-muted-foreground">
+                          <span className="inline-flex items-center gap-1"><DollarSign className="h-4 w-4" />{req.budgetMin || "—"} - {req.budgetMax || "—"}</span>
+                          {req.expiresAt ? <span>Expires {new Date(req.expiresAt).toLocaleTimeString()}</span> : null}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => acceptHurry(req.id)}>Accept</Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </CardContent>
+              </Card>
+
               {myBookings.filter((item) => item.status === "requested").length === 0 ? (
                 <Card><CardContent className="p-6 text-muted-foreground">No pending requests right now.</CardContent></Card>
               ) : (
@@ -362,7 +419,6 @@ const ProviderDashboard = () => {
       </div>
 
       <Footer />
-      <ChatbotButton />
     </div>
   );
 };

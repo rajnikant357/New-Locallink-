@@ -34,6 +34,7 @@ const listProvidersSchema = z.object({
     ratingMin: z.coerce.number().min(0).max(5).optional(),
     priceMin: z.coerce.number().min(0).optional(),
     priceMax: z.coerce.number().min(0).optional(),
+    billingType: z.enum(["hourly", "day", "visit"]).optional(),
     verifiedOnly: z
       .string()
       .optional()
@@ -182,7 +183,19 @@ function scoreProviderMatch(provider, query) {
 }
 
 async function listProviders(req, res) {
-  const { category, q, location, ratingMin, priceMin, priceMax, verifiedOnly, sortBy, limit } = req.validated.query;
+  const {
+    category,
+    q,
+    location,
+    ratingMin,
+    priceMin,
+    priceMax,
+    billingType,
+    verifiedOnly,
+    sortBy,
+    limit,
+  } = req.validated.query;
+  const effectiveLimit = typeof limit === "number" ? limit : 100;
   const canApplyDbLimit =
     typeof limit === "number" &&
     !category &&
@@ -193,10 +206,13 @@ async function listProviders(req, res) {
     typeof priceMax !== "number" &&
     !verifiedOnly &&
     !sortBy;
-  let results = await fetchProviders(canApplyDbLimit ? { limit } : undefined);
+  let results = await fetchProviders(canApplyDbLimit ? { limit: effectiveLimit } : undefined);
 
   if (category) {
     results = results.filter((p) => p.category.toLowerCase() === category.toLowerCase());
+  }
+  if (billingType) {
+    results = results.filter((p) => (p.billingType || "hourly").toLowerCase() === billingType.toLowerCase());
   }
   if (location) {
     results = results.filter((p) => p.location.toLowerCase().includes(location.toLowerCase()));
@@ -224,6 +240,7 @@ async function listProviders(req, res) {
   if (verifiedOnly) {
     results = results.filter((p) => !!p.isVerified);
   }
+  results = results.slice(0, effectiveLimit);
 
   if (q && (!sortBy || sortBy === "nearest")) {
     results = [...results].sort((left, right) => {

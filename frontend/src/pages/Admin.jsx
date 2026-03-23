@@ -44,12 +44,10 @@ const defaultUserDraft = {
   confirmPassword: "",
 };
 
-const createEmptySubcategoryDraft = () => ({ name: "", description: "" });
 const defaultNewCategory = {
   id: "",
   name: "",
   description: "",
-  subcategoryDetails: [createEmptySubcategoryDraft()],
 };
 
 const defaultProviderDraft = {
@@ -57,7 +55,6 @@ const defaultProviderDraft = {
   userId: "",
   name: "",
   category: "",
-  subCategory: "",
   bio: "",
   location: "",
   billingType: "hourly",
@@ -82,7 +79,6 @@ const toProviderDraft = (entry) => ({
   userId: entry?.userId || "",
   name: entry?.name || "",
   category: entry?.category || "",
-  subCategory: entry?.subCategory || "",
   bio: entry?.bio || "",
   location: entry?.location || "",
   billingType: entry?.billingType || "hourly",
@@ -196,6 +192,10 @@ const Admin = () => {
     () => providers.filter((entry) => (entry.applicationStatus || (entry.isVerified ? "approved" : "pending")) !== "approved"),
     [providers],
   );
+  const categoryOptions = useMemo(
+    () => (categories || []).filter((c) => c?.isActive !== false).map((c) => c.name).sort(),
+    [categories],
+  );
   const navCards = useMemo(
     () => [
       { id: "categories", label: "Categories", value: overview?.categoriesCount || 0 },
@@ -275,13 +275,6 @@ const Admin = () => {
       id: category.id,
       name: category.name || "",
       description: category.description || "",
-      subcategoryDetails:
-        Array.isArray(category.subcategoryDetails) && category.subcategoryDetails.length > 0
-          ? category.subcategoryDetails.map((entry) => ({
-              name: entry.name || "",
-              description: entry.description || "",
-            }))
-          : [createEmptySubcategoryDraft()],
     });
   };
 
@@ -289,46 +282,13 @@ const Admin = () => {
     setNewCategory(defaultNewCategory);
   };
 
-  const updateNewCategorySubcategory = (index, field, value) => {
-    setNewCategory((prev) => ({
-      ...prev,
-      subcategoryDetails: prev.subcategoryDetails.map((entry, entryIndex) =>
-        entryIndex === index ? { ...entry, [field]: value } : entry,
-      ),
-    }));
-  };
-
-  const addNewCategorySubcategory = () => {
-    setNewCategory((prev) => ({
-      ...prev,
-      subcategoryDetails: [...prev.subcategoryDetails, createEmptySubcategoryDraft()],
-    }));
-  };
-
-  const removeNewCategorySubcategory = (index) => {
-    setNewCategory((prev) => ({
-      ...prev,
-      subcategoryDetails:
-        prev.subcategoryDetails.length === 1
-          ? [createEmptySubcategoryDraft()]
-          : prev.subcategoryDetails.filter((_, entryIndex) => entryIndex !== index),
-    }));
-  };
-
   const saveCategory = async () => {
     if (!newCategory.name.trim()) return;
 
     try {
-      const parsedSubcategoryDetails = newCategory.subcategoryDetails
-        .map((entry) => ({
-          name: entry.name.trim(),
-          description: entry.description.trim(),
-        }))
-        .filter((entry) => entry.name);
       const payload = {
         name: newCategory.name.trim(),
         description: newCategory.description.trim(),
-        subcategoryDetails: parsedSubcategoryDetails,
         isActive: true,
       };
 
@@ -438,7 +398,6 @@ const Admin = () => {
     const payload = {
       name: providerDraft.name.trim(),
       category: providerDraft.category.trim(),
-      subCategory: providerDraft.subCategory.trim(),
       bio: providerDraft.bio.trim(),
       location: providerDraft.location.trim(),
       billingType: providerDraft.billingType,
@@ -455,10 +414,18 @@ const Admin = () => {
       ),
     };
 
-    if (!payload.name || !payload.category || !payload.subCategory || !payload.bio || !payload.location) {
+    // Drop optional fields when blank to satisfy backend validators
+    if (!payload.aadhaarNumber) delete payload.aadhaarNumber;
+    if (!payload.certificateUrl) delete payload.certificateUrl;
+    if (!payload.verificationNotes) delete payload.verificationNotes;
+    if (!payload.skills.length) delete payload.skills;
+    if (!payload.priceMin) delete payload.priceMin;
+    if (!payload.hourlyRate) delete payload.hourlyRate;
+
+    if (!payload.name || !payload.category || !payload.bio || !payload.location) {
       toast({
         title: "Missing fields",
-        description: "Provider name, category, subcategory, bio, and location are required.",
+        description: "Provider name, category, bio, and location are required.",
         variant: "destructive",
       });
       return;
@@ -761,7 +728,7 @@ const Admin = () => {
         <div className="container mx-auto px-4 space-y-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div className="flex items-center gap-4">
-              <ProfilePicture name={user?.name || "Admin"} type="admin" userId={user?.id} editable />
+              <ProfilePicture name={user?.name || "Admin"} editable />
               <div>
                 <h1 className="text-3xl font-bold">{user?.name || "Admin"}</h1>
                 <p className="text-muted-foreground">{user?.email || "admin@locallink.com"}</p>
@@ -812,57 +779,12 @@ const Admin = () => {
                     </div>
                   </div>
 
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label>Subcategories</Label>
-                      <Button type="button" variant="outline" size="sm" onClick={addNewCategorySubcategory}>
-                        Add Subcategory
-                      </Button>
-                    </div>
-
-                    {newCategory.subcategoryDetails.map((entry, index) => (
-                      <div key={index} className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-3 border rounded-lg p-3">
-                        <div>
-                          <Label>Subcategory Name</Label>
-                          <Input
-                            value={entry.name}
-                            onChange={(event) => updateNewCategorySubcategory(index, "name", event.target.value)}
-                            placeholder="Subcategory name"
-                          />
-                        </div>
-                        <div>
-                          <Label>Subcategory Description</Label>
-                          <Textarea
-                            value={entry.description}
-                            onChange={(event) =>
-                              updateNewCategorySubcategory(index, "description", event.target.value)
-                            }
-                            placeholder="Short subcategory description"
-                            rows={2}
-                          />
-                        </div>
-                        <div className="flex items-end">
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => removeNewCategorySubcategory(index)}
-                          >
-                            Remove
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+                  <div className="flex justify-end gap-2">
+                    {newCategory.id ? <Button variant="outline" onClick={resetCategoryForm}>Cancel</Button> : null}
+                    <Button onClick={saveCategory}>{newCategory.id ? "Save Changes" : "Create"}</Button>
                   </div>
-
-                    <div className="flex justify-end gap-2">
-                      {newCategory.id ? (
-                        <Button variant="outline" onClick={resetCategoryForm}>Cancel</Button>
-                      ) : null}
-                      <Button onClick={saveCategory}>{newCategory.id ? "Save Changes" : "Create"}</Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                </CardContent>
+              </Card>
 
               <Card>
                 <CardHeader><CardTitle>Category Listing</CardTitle></CardHeader>
@@ -872,26 +794,19 @@ const Admin = () => {
                       <div>
                         <p className="font-medium">{category.name}</p>
                         <p className="text-sm text-muted-foreground">{category.description || "No description"}</p>
-                        {Array.isArray(category.subcategoryDetails) && category.subcategoryDetails.length > 0 ? (
-                          <div className="mt-2 space-y-1">
-                            {category.subcategoryDetails.slice(0, 3).map((entry) => (
-                              <p key={entry.name} className="text-xs text-muted-foreground">
-                                <span className="font-medium text-foreground">{entry.name}</span>
-                                {entry.description ? ` - ${entry.description}` : ""}
-                              </p>
-                            ))}
-                            {category.subcategoryDetails.length > 3 ? (
-                              <p className="text-xs text-muted-foreground">...</p>
-                            ) : null}
-                          </div>
-                        ) : null}
-                        </div>
-                        <div className="flex gap-2">
-                          <Badge variant={category.isActive ? "default" : "secondary"}>{category.isActive ? "Active" : "Inactive"}</Badge>
-                          <Button variant="outline" size="sm" onClick={() => startEditingCategory(category)}>Edit</Button>
-                          <Button variant="outline" size="sm" onClick={() => toggleCategory(category)}>{category.isActive ? "Disable" : "Enable"}</Button>
-                        </div>
                       </div>
+                      <div className="flex gap-2">
+                        <Badge variant={category.isActive ? "default" : "secondary"}>
+                          {category.isActive ? "Active" : "Inactive"}
+                        </Badge>
+                        <Button variant="outline" size="sm" onClick={() => startEditingCategory(category)}>
+                          Edit
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => toggleCategory(category)}>
+                          {category.isActive ? "Disable" : "Enable"}
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </CardContent>
               </Card>
@@ -1084,17 +999,24 @@ const Admin = () => {
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <div>
                                 <Label>Category</Label>
-                                <Input
+                                <select
+                                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                                   value={providerDraft.category}
-                                  onChange={(event) => setProviderDraft((prev) => ({ ...prev, category: event.target.value }))}
-                                />
-                              </div>
-                              <div>
-                                <Label>Subcategory</Label>
-                                <Input
-                                  value={providerDraft.subCategory}
-                                  onChange={(event) => setProviderDraft((prev) => ({ ...prev, subCategory: event.target.value }))}
-                                />
+                                  onChange={(event) =>
+                                    setProviderDraft((prev) => ({ ...prev, category: event.target.value }))
+                                  }
+                                >
+                                  <option value="">Select category</option>
+                                  {categoryOptions.map((name) => (
+                                    <option key={name} value={name}>
+                                      {name}
+                                    </option>
+                                  ))}
+                                  {providerDraft.category &&
+                                  !categoryOptions.includes(providerDraft.category) ? (
+                                    <option value={providerDraft.category}>{`Custom: ${providerDraft.category}`}</option>
+                                  ) : null}
+                                </select>
                               </div>
                             </div>
 
@@ -1478,7 +1400,7 @@ const Admin = () => {
                           <div>
                             <p className="font-medium">{provider.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {provider.category} | {provider.subCategory || "No subcategory"} | {provider.location}
+                              {provider.category} | {provider.location}
                             </p>
                             <p className="text-xs text-muted-foreground mt-1">
                               {provider.user?.email || "No email"} | {provider.user?.phone || "No phone"}
@@ -1532,10 +1454,6 @@ const Admin = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Service Category</p>
                         <p className="font-medium">{viewingProvider.category}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm text-muted-foreground">Service Subcategory</p>
-                        <p className="font-medium">{viewingProvider.subCategory || "N/A"}</p>
                       </div>
                       <div>
                         <p className="text-sm text-muted-foreground">Experience</p>

@@ -1,5 +1,4 @@
 import Navbar from "@/components/Navbar";
-import ChatbotButton from "@/components/ChatbotButton";
 import Footer from "@/components/Footer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
@@ -137,7 +136,6 @@ const FAQs = () => {
       {/* Chatbot Button only for FAQs page */}
       {typeof window !== "undefined" && window.innerWidth < 768 && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 10 }}>
-          <ChatbotButton />
         </div>
       )}
     </div>

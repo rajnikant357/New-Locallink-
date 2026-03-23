@@ -112,7 +112,7 @@ const Categories = () => {
                 const Icon = CATEGORY_ICONS[category.name.toLowerCase()] || DefaultCategoryIcon;
 
                 return (
-                  <Link key={category.id} to={`/category/${slugifyCategoryName(category.name)}`}>
+                  <Link key={category.id} to={`/providers?q=${encodeURIComponent(category.name)}`}>
                     <Card className="hover:shadow-lg transition-all hover:-translate-y-1 h-full">
                       <CardContent className="p-6">
                         <div className="relative w-12 h-12 mb-3 bg-category-bg rounded-full flex items-center justify-center">

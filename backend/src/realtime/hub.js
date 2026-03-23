@@ -34,9 +34,22 @@ function publishToUser(userId, event, payload) {
   }
 }
 
+function publishToAll(event, payload) {
+  for (const [, bucket] of clientsByUser.entries()) {
+    for (const res of bucket) {
+      try {
+        writeEvent(res, event, payload);
+      } catch {
+        // ignore
+      }
+    }
+  }
+}
+
 module.exports = {
   addClient,
   removeClient,
   writeEvent,
   publishToUser,
+  publishToAll,
 };

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { getAccessToken, API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL } from "@/lib/api";
 
 const EVENT_NAMES = [
   "connected",
@@ -15,7 +15,6 @@ const EVENT_NAMES = [
 ];
 
 let sharedSource = null;
-let sharedToken = null;
 let detachHandlers = null;
 const subscribers = new Set();
 
@@ -38,20 +37,13 @@ function closeSharedSource() {
   detachHandlers = null;
   sharedSource?.close();
   sharedSource = null;
-  sharedToken = null;
 }
 
-function ensureSharedSource(token) {
-  if (!token) return;
+function ensureSharedSource() {
+  if (sharedSource) return;
 
-  if (sharedSource && sharedToken === token) {
-    return;
-  }
-
-  closeSharedSource();
-
-  const streamUrl = `${API_BASE_URL}/realtime/stream?token=${encodeURIComponent(token)}`;
-  const source = new EventSource(streamUrl);
+  const streamUrl = `${API_BASE_URL}/realtime/stream`;
+  const source = new EventSource(streamUrl, { withCredentials: true });
 
   const handlers = EVENT_NAMES.map((eventName) => {
     const listener = (event) => {
@@ -73,7 +65,6 @@ function ensureSharedSource(token) {
   source.addEventListener("error", errorListener);
 
   sharedSource = source;
-  sharedToken = token;
   detachHandlers = () => {
     for (const { eventName, listener } of handlers) {
       source.removeEventListener(eventName, listener);
@@ -85,17 +76,14 @@ function ensureSharedSource(token) {
 export function useRealtimeEvents(onEvent) {
   const handlerRef = useRef(onEvent);
   handlerRef.current = onEvent;
-  const token = getAccessToken();
 
   useEffect(() => {
-    if (!token) return undefined;
-
     const subscriber = (eventName, payload) => {
       handlerRef.current?.(eventName, payload);
     };
 
     subscribers.add(subscriber);
-    ensureSharedSource(token);
+    ensureSharedSource();
 
     return () => {
       subscribers.delete(subscriber);
@@ -103,5 +91,5 @@ export function useRealtimeEvents(onEvent) {
         closeSharedSource();
       }
     };
-  }, [token]);
+  }, []);
 }

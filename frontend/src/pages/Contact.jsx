@@ -1,5 +1,4 @@
 import Navbar from "@/components/Navbar";
-import ChatbotButton from "@/components/ChatbotButton";
 import Footer from "@/components/Footer";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -221,7 +220,6 @@ const Contact = () => {
       {/* Chatbot Button only for Contact page */}
       {typeof window !== "undefined" && window.innerWidth < 768 && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 10 }}>
-          <ChatbotButton />
         </div>
       )}
     </div>

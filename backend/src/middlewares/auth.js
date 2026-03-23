@@ -3,9 +3,11 @@ const { getUserById } = require("../db/repository");
 
 async function authRequired(req, res, next) {
   const authHeader = req.headers.authorization || "";
-  const [scheme, token] = authHeader.split(" ");
+  const [scheme, headerToken] = authHeader.split(" ");
+  const cookieToken = req.cookies?.ll_access;
+  const token = scheme === "Bearer" && headerToken ? headerToken : cookieToken;
 
-  if (scheme !== "Bearer" || !token) {
+  if (!token) {
     return res.status(401).json({ message: "Unauthorized" });
   }
 

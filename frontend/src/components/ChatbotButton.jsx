@@ -1,132 +1,104 @@
-import React, { useState, useEffect } from "react";
-import { MessageSquare } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { MessageSquare, Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 const ChatbotButton = () => {
   const [open, setOpen] = useState(false);
+  const [message, setMessage] = useState("");
+  const [history, setHistory] = useState([]);
+  const [sending, setSending] = useState(false);
+  const inputRef = useRef(null);
 
   useEffect(() => {
-    const handler = () => setOpen(true);
-    window.addEventListener('open-chatbot', handler);
-    return () => window.removeEventListener('open-chatbot', handler);
-  }, []);
-  const [message, setMessage] = useState("");
+    if (open) {
+      inputRef.current?.focus();
+    }
+  }, [open]);
+
+  const send = async () => {
+    const text = message.trim();
+    if (!text || sending) return;
+    setMessage("");
+    setHistory((prev) => [...prev, { role: "user", text }]);
+    setSending(true);
+    try {
+      const res = await api("/support/ask", {
+        method: "POST",
+        body: JSON.stringify({ question: text }),
+      });
+      setHistory((prev) => [...prev, { role: "assistant", text: res.answer }]);
+    } catch (err) {
+      setHistory((prev) => [...prev, { role: "assistant", text: err?.message || "Sorry, I couldn't answer." }]);
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <>
       <button
         onClick={() => setOpen((o) => !o)}
-        style={{
-          position: "fixed",
-          bottom: 54,
-          right: 16,
-          zIndex: 1000,
-          background: "#2563eb",
-          color: "white",
-          borderRadius: 18,
-          minWidth: 90,
-          height: 36,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.15)",
-          border: "none",
-          cursor: "pointer",
-          fontSize: 13,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "0 12px",
-          fontWeight: "bold",
-          gap: 6,
-        }}
-        aria-label="Open chatbot"
+        className="fixed bottom-6 right-4 z-50 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-2 shadow-lg"
+        aria-label="Open support chat"
       >
-        <MessageSquare style={{ width: 16, height: 16, marginRight: 6 }} />
-        <span style={{ display: "inline-block", verticalAlign: "middle", lineHeight: "1" }}>Ask Toffy</span>
+        <MessageSquare className="h-4 w-4" />
+        <span>Help</span>
       </button>
-      {open && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 54,
-            right: 16,
-            zIndex: 1000,
-            width: window.innerWidth < 768 ? 240 : 360,
-            height: window.innerWidth < 768 ? 320 : 440,
-            background: "#fff",
-            borderRadius: 16,
-            boxShadow: "0 4px 24px rgba(0,0,0,0.18)",
-            display: "flex",
-            flexDirection: "column",
-            overflow: "hidden",
-          }}
-        >
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            background: "#2563eb",
-            color: "#fff",
-            padding: window.innerWidth < 768 ? "8px 12px 8px 10px" : "12px 20px 12px 16px",
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
-            fontWeight: "bold",
-            fontSize: window.innerWidth < 768 ? 14 : 18,
-          }}>
-            <span style={{ display: "flex", alignItems: "center", gap: window.innerWidth < 768 ? 5 : 8 }}>
-              <MessageSquare style={{ width: window.innerWidth < 768 ? 14 : 22, height: window.innerWidth < 768 ? 14 : 22 }} />
-              Ask Toffy
+      {open ? (
+        <div className="fixed bottom-16 right-4 z-50 w-[360px] max-w-[95vw] bg-background border rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+          <div className="px-4 py-3 bg-primary text-primary-foreground flex items-center justify-between">
+            <span className="font-semibold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              LocalLink Assistant
             </span>
-            <button
-              onClick={() => setOpen(false)}
-              style={{
-                background: "transparent",
-                border: "none",
-                fontSize: window.innerWidth < 768 ? 16 : 22,
-                cursor: "pointer",
-                color: "#fff",
-                marginLeft: 8,
-              }}
-              aria-label="Close chatbot"
-            >
+            <button onClick={() => setOpen(false)} className="text-primary-foreground/80 hover:text-white text-lg">
               ×
             </button>
           </div>
-          <div style={{ flex: 1, overflowY: "auto", padding: window.innerWidth < 768 ? "8px" : "16px" }}>
-            <p>Hello! How can I help you?</p>
-            {/* Add your chatbot UI here */}
+          <div className="p-3 space-y-2 max-h-80 overflow-y-auto text-sm">
+            {history.length === 0 ? (
+              <p className="text-muted-foreground">Ask about login, providers, bookings, Hurry Mode, or using the app.</p>
+            ) : (
+              history.map((entry, idx) => (
+                <div
+                  key={idx}
+                  className={`px-3 py-2 rounded-lg ${entry.role === "user" ? "bg-primary/10 text-foreground" : "bg-muted text-foreground"}`}
+                >
+                  {entry.text}
+                </div>
+              ))
+            )}
+            {sending ? (
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Thinking…
+              </div>
+            ) : null}
           </div>
-          <div style={{ display: "flex", gap: window.innerWidth < 768 ? 4 : 8, padding: window.innerWidth < 768 ? "8px 8px" : "12px 16px", borderTop: "1px solid #e5e7eb", background: "#f9fafb" }}>
+          <div className="p-3 border-t flex gap-2">
             <input
-              type="text"
+              ref={inputRef}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm"
+              placeholder="Ask about LocalLink..."
               value={message}
-              onChange={e => setMessage(e.target.value)}
-              placeholder="Type your message..."
-              style={{
-                flex: 1,
-                padding: window.innerWidth < 768 ? 6 : 10,
-                borderRadius: window.innerWidth < 768 ? 7 : 10,
-                border: "1px solid #e5e7eb",
-                outline: "none",
-                fontSize: window.innerWidth < 768 ? 12 : 16,
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  send();
+                }
               }}
             />
             <button
-              onClick={() => { setMessage(""); }}
-              style={{
-                background: "#2563eb",
-                color: "white",
-                border: "none",
-                borderRadius: 10,
-                padding: window.innerWidth < 768 ? "0 10px" : "0 20px",
-                cursor: "pointer",
-                fontWeight: "bold",
-                fontSize: window.innerWidth < 768 ? 12 : 16,
-              }}
-              aria-label="Send message"
+              onClick={send}
+              disabled={sending}
+              className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-60"
             >
               Send
             </button>
           </div>
         </div>
-      )}
+      ) : null}
     </>
   );
 };

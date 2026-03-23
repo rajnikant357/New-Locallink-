@@ -1,5 +1,4 @@
 import Navbar from "@/components/Navbar";
-import ChatbotButton from "@/components/ChatbotButton";
 import Footer from "@/components/Footer";
 import { Search, Book, Users, CreditCard, MessageSquare, Shield } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -142,7 +141,6 @@ const HelpCenter = () => {
       <Footer />
       {typeof window !== "undefined" && window.innerWidth < 768 && (
         <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 10 }}>
-          <ChatbotButton />
         </div>
       )}
     </div>

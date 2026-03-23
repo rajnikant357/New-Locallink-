@@ -11,7 +11,7 @@ import { Eye, EyeOff, ArrowLeft } from "lucide-react";
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, isAuthenticated } = useAuth();
+  const { signIn, signUp, socialLogin, requestPasswordReset, isAuthenticated } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   
   const [signInData, setSignInData] = useState({ email: "", password: "" });
@@ -26,6 +26,7 @@ const Auth = () => {
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [resetInFlight, setResetInFlight] = useState(false);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -53,6 +54,50 @@ const Auth = () => {
       });
     }
     setIsLoading(false);
+  };
+
+  const handleForgotPassword = async () => {
+    if (resetInFlight) return;
+    const email = window.prompt("Enter the email you used to sign up:");
+    if (!email) return;
+    setResetInFlight(true);
+    const { error, data } = await requestPasswordReset(email);
+    if (!error) {
+      toast({
+        title: "Check your email",
+        description:
+          data?.resetUrl
+            ? `Dev link: ${data.resetUrl}`
+            : "If the account exists, you'll receive a reset link.",
+      });
+    } else {
+      toast({
+        title: "Could not start reset",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
+    setResetInFlight(false);
+  };
+
+  const handleSocial = async (provider) => {
+    const email = window.prompt(`Enter your ${provider} email to continue:`);
+    if (!email) return;
+    const name = window.prompt("Name to display on your profile:");
+    const { error } = await socialLogin(provider, email, name || email.split("@")[0]);
+    if (!error) {
+      toast({
+        title: `Signed in with ${provider}`,
+        description: "You're all set.",
+      });
+      navigate("/dashboard");
+    } else {
+      toast({
+        title: "Sign in failed",
+        description: error.message || "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleSignUp = async (e) => {
@@ -155,7 +200,7 @@ const Auth = () => {
                       <input type="checkbox" className="rounded" />
                       Remember me
                     </label>
-                    <Button variant="link" className="p-0 h-auto text-sm">
+                    <Button variant="link" className="p-0 h-auto text-sm" type="button" onClick={handleForgotPassword}>
                       Forgot password?
                     </Button>
                   </div>
@@ -163,6 +208,7 @@ const Auth = () => {
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? "Signing in..." : "Sign In"}
                   </Button>
+
                 </form>
               </TabsContent>
 
@@ -305,8 +351,12 @@ const Auth = () => {
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <Button variant="outline">Google</Button>
-                <Button variant="outline">Facebook</Button>
+                <Button type="button" variant="outline" onClick={() => handleSocial("google")}>
+                  Google
+                </Button>
+                <Button type="button" variant="outline" onClick={() => handleSocial("facebook")}>
+                  Facebook
+                </Button>
               </div>
             </div>
           </CardContent>

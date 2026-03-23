@@ -10,6 +10,8 @@ const usersRoutes = require("./users.routes");
 const adminRoutes = require("./admin.routes");
 const realtimeRoutes = require("./realtime.routes");
 const contactRoutes = require("./contact.routes");
+const hurryRoutes = require("./hurry.routes");
+const supportRoutes = require("./support.routes");
 
 const router = express.Router();
 
@@ -27,5 +29,7 @@ router.use("/users", usersRoutes);
 router.use("/admin", adminRoutes);
 router.use("/realtime", realtimeRoutes);
 router.use("/contact", contactRoutes);
+router.use("/hurry", hurryRoutes);
+router.use("/support", supportRoutes);
 
 module.exports = router;

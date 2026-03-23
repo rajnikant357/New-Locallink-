@@ -26,3 +26,16 @@ export function findCategoryBySlug(categories = [], slug = "") {
   const normalizedSlug = slugifyCategoryName(slug);
   return categories.find((category) => slugifyCategoryName(category?.name || "") === normalizedSlug) || null;
 }
+
+export function slugifySubcategoryName(name = "") {
+  return slugifyCategoryName(name);
+}
+
+export function getCategorySubcategoryDetails(category = null) {
+  // Subcategories are no longer used in the app; keep API stable but return an empty list.
+  return [];
+}
+
+export function findSubcategoryBySlug(category = null, slug = "") {
+  return null;
+}

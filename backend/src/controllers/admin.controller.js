@@ -100,7 +100,8 @@ const adminUpdateUserSchema = z.object({
       location: z.string().trim().max(120).optional(),
       email: z.string().trim().toLowerCase().email().optional(),
       password: z.string().min(8).max(128).optional(),
-      profileImageUrl: z.string().trim().max(2_000_000).optional(),
+      // align with self-service update limit (~10MB data URL/string)
+      profileImageUrl: z.string().trim().max(10_000_000).optional(),
       type: userTypeSchema.optional(),
       isActive: z.boolean().optional(),
       notificationSettings: z
@@ -148,7 +149,6 @@ const adminUpdateProviderSchema = z.object({
     .object({
       name: z.string().trim().min(2).max(100).optional(),
       category: z.string().trim().min(2).max(80).optional(),
-      subCategory: z.string().trim().min(2).max(120).optional(),
       bio: z.string().trim().min(10).max(1200).optional(),
       location: z.string().trim().min(2).max(120).optional(),
       billingType: z.enum(["hourly", "day"]).optional(),

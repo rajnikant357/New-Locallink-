@@ -60,13 +60,10 @@ function mapUserRow(row) {
 
 function mapCategoryRow(row) {
   if (!row) return null;
-  const subcategoryDetails = normalizeSubcategoryDetails(row);
   return {
     id: row.id,
     name: row.name,
     description: row.description,
-    subcategories: subcategoryDetails.map((entry) => entry.name),
-    subcategoryDetails,
     isActive: row.is_active,
     createdAt: normalizeTimestamp(row.created_at),
     updatedAt: normalizeTimestamp(row.updated_at),
@@ -175,6 +172,36 @@ function mapContactMessageRow(row) {
   };
 }
 
+function mapHurryRequestRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    customerId: row.customer_id,
+    service: row.service,
+    location: row.location,
+    budgetMin: row.budget_min !== null ? Number(row.budget_min) : null,
+    budgetMax: row.budget_max !== null ? Number(row.budget_max) : null,
+    notes: row.notes,
+    status: row.status,
+    matchedProviderId: row.matched_provider_id,
+    expiresAt: normalizeTimestamp(row.expires_at),
+    createdAt: normalizeTimestamp(row.created_at),
+    updatedAt: normalizeTimestamp(row.updated_at),
+  };
+}
+
+function mapHurryResponseRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    requestId: row.request_id,
+    providerId: row.provider_id,
+    providerUserId: row.provider_user_id,
+    status: row.status,
+    createdAt: normalizeTimestamp(row.created_at),
+  };
+}
+
 async function getUserByEmail(email) {
   const { rows } = await pool.query(
     `
@@ -201,6 +228,51 @@ async function getUserByRefreshTokenHash(hash) {
     SELECT * FROM app_users WHERE $1 = ANY(refresh_token_hashes)
   `,
     [hash],
+  );
+  return mapUserRow(rows[0]);
+}
+
+async function getUserByResetTokenHash(hash) {
+  const { rows } = await pool.query(
+    `
+    SELECT * FROM app_users
+    WHERE data ->> 'resetTokenHash' = $1
+    LIMIT 1
+  `,
+    [hash],
+  );
+  return mapUserRow(rows[0]);
+}
+
+async function setResetTokenForUser(userId, resetTokenHash, expiresAt) {
+  const { rows } = await pool.query(
+    `
+    UPDATE app_users
+    SET data = jsonb_set(
+          jsonb_set(COALESCE(data, '{}'::jsonb), '{resetTokenHash}', to_jsonb($1::text), true),
+          '{resetTokenExpiresAt}',
+          to_jsonb($2::text),
+          true
+        ),
+        updated_at = NOW()
+    WHERE id = $3
+    RETURNING *
+  `,
+    [resetTokenHash, expiresAt instanceof Date ? expiresAt.toISOString() : expiresAt, userId],
+  );
+  return mapUserRow(rows[0]);
+}
+
+async function clearResetTokenForUser(userId) {
+  const { rows } = await pool.query(
+    `
+    UPDATE app_users
+    SET data = (COALESCE(data, '{}'::jsonb) - 'resetTokenHash' - 'resetTokenExpiresAt'),
+        updated_at = NOW()
+    WHERE id = $1
+    RETURNING *
+  `,
+    [userId],
   );
   return mapUserRow(rows[0]);
 }
@@ -313,18 +385,14 @@ async function createCategory(values) {
       id,
       name,
       description,
-      subcategories,
-      subcategory_details,
       is_active
-    ) VALUES ($1,$2,$3,$4,$5,$6)
+    ) VALUES ($1,$2,$3,$4)
     RETURNING *
   `,
     [
       values.id,
       values.name,
       values.description,
-      values.subcategories || [],
-      JSON.stringify(values.subcategoryDetails || []),
       values.isActive,
     ],
   );
@@ -850,14 +918,92 @@ async function countUnreadNotifications() {
   return Number(rows[0]?.count || 0);
 }
 
+async function createHurryRequest(values) {
+  const { rows } = await pool.query(
+    `
+    INSERT INTO app_hurry_requests (
+      id, customer_id, service, location, budget_min, budget_max, notes, status, matched_provider_id, expires_at
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    RETURNING *
+  `,
+    [
+      values.id,
+      values.customerId,
+      values.service,
+      values.location,
+      values.budgetMin ?? null,
+      values.budgetMax ?? null,
+      values.notes || "",
+      values.status || "pending",
+      values.matchedProviderId || null,
+      values.expiresAt || null,
+    ],
+  );
+  return mapHurryRequestRow(rows[0]);
+}
+
+async function updateHurryRequest(id, updates) {
+  const clause = buildUpdateClause(updates);
+  if (!clause) return getHurryRequest(id);
+  const { clause: setClause, values } = clause;
+  const { rows } = await pool.query(
+    `
+    UPDATE app_hurry_requests SET ${setClause}, updated_at = NOW()
+    WHERE id = $${values.length + 1}
+    RETURNING *
+  `,
+    [...values, id],
+  );
+  return mapHurryRequestRow(rows[0]);
+}
+
+async function getHurryRequest(id) {
+  const { rows } = await pool.query("SELECT * FROM app_hurry_requests WHERE id = $1", [id]);
+  return mapHurryRequestRow(rows[0]);
+}
+
+async function listActiveHurryRequests(expiresAfter = new Date()) {
+  const { rows } = await pool.query(
+    `
+    SELECT * FROM app_hurry_requests
+    WHERE status = 'pending' AND (expires_at IS NULL OR expires_at > $1)
+    ORDER BY created_at DESC
+  `,
+    [expiresAfter],
+  );
+  return rows.map(mapHurryRequestRow);
+}
+
+async function listHurryResponses(requestId) {
+  const { rows } = await pool.query("SELECT * FROM app_hurry_responses WHERE request_id = $1 ORDER BY created_at ASC", [
+    requestId,
+  ]);
+  return rows.map(mapHurryResponseRow);
+}
+
+async function addHurryResponse(values) {
+  const { rows } = await pool.query(
+    `
+    INSERT INTO app_hurry_responses (id, request_id, provider_id, provider_user_id, status)
+    VALUES ($1,$2,$3,$4,$5)
+    RETURNING *
+  `,
+    [values.id, values.requestId, values.providerId, values.providerUserId, values.status],
+  );
+  return mapHurryResponseRow(rows[0]);
+}
+
 module.exports = {
   getUserByEmail,
   getUserById,
   getUserByRefreshTokenHash,
+  getUserByResetTokenHash,
   getUsersByIds,
   listUsers,
   createUser,
   updateUser,
+  setResetTokenForUser,
+  clearResetTokenForUser,
   deleteUser,
   countUsers,
   listCategories,
@@ -906,6 +1052,12 @@ module.exports = {
   updateContactMessage,
   getContactMessageById,
   deleteContactMessage,
+  createHurryRequest,
+  updateHurryRequest,
+  getHurryRequest,
+  listActiveHurryRequests,
+  listHurryResponses,
+  addHurryResponse,
 };
 
 

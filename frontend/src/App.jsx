@@ -8,7 +8,16 @@ import { AuthProvider } from "./contexts/AuthContext";
 import ChatbotButton from "@/components/ChatbotButton";
 import BottomNavbar from "@/components/BottomNavbar";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000, // 5 minutes
+      cacheTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 const Home = lazy(() => import("./pages/Home"));
 const SearchResults = lazy(() => import("./pages/SearchResults"));
 const Categories = lazy(() => import("./pages/Categories"));
@@ -25,6 +34,7 @@ const Privacy = lazy(() => import("./pages/Privacy"));
 const RegisterProvider = lazy(() => import("./pages/RegisterProvider"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Auth = lazy(() => import("./pages/Auth"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Notifications = lazy(() => import("./pages/Notifications"));
 const Messages = lazy(() => import("./pages/Messages"));
@@ -52,11 +62,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      {typeof window !== "undefined" && window.innerWidth < 768 && location.pathname !== "/auth" && (
-        <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 10 }}>
-          <ChatbotButton />
-        </div>
-      )}
+      <ChatbotButton />
 
       <Suspense fallback={<PageFallback />}>
         <Routes location={backgroundLocation || location}>
@@ -76,6 +82,7 @@ const AppRoutes = () => {
           <Route path="/register-provider" element={<RegisterProvider />} />
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/auth" element={<Auth />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/notifications" element={<Notifications />} />
           <Route path="/settings" element={<Settings />} />
