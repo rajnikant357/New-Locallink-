@@ -62,9 +62,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      <div id="app-debug" style={{position: 'fixed', top: 8, right: 8, background: '#16a34a', color: 'white', padding: '4px 8px', zIndex: 9999, borderRadius: 4, fontSize: 12}}>
-        App running
-      </div>
+      {/* debug status removed: previously showed "App running" in top-right */}
       <ChatbotButton />
 
       <Suspense fallback={<PageFallback />}>

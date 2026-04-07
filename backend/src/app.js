@@ -26,6 +26,8 @@ app.use(hpp());
 app.use(
   cors({
     origin(origin, callback) {
+      // During development allow all origins to simplify local previews
+      if (!env.isProd) return callback(null, true);
       if (!origin || env.corsOrigins.includes(origin)) {
         return callback(null, true);
       }

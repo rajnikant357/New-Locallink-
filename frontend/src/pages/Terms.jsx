@@ -133,7 +133,7 @@ const Terms = () => {
                   <br />
                   Email: support@locallink.com
                   <br />
-                  Phone: +91 9876543210
+                  Phone: +91 7084202503
                 </p>
               </section>
             </div>

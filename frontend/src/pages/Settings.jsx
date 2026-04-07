@@ -34,7 +34,8 @@ const Settings = () => {
   const getInitialDarkMode = () => {
     if (typeof localStorage !== "undefined" && localStorage.getItem("locallink-theme") === "dark") return true;
     if (typeof document !== "undefined" && document.documentElement.classList.contains("dark")) return true;
-    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-color-scheme: dark)").matches) return true;
+    // Do not auto-enable dark mode based on system preference when opening Settings.
+    // Respect explicit localStorage or existing document class only.
     return false;
   };
 

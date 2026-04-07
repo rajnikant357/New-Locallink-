@@ -15,8 +15,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
-  // Use root base for production so Vercel serves the app at '/'
+  plugins: [react()],
   base: "/",
   resolve: {
     alias: {
