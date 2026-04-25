@@ -1,5 +1,5 @@
 const { env } = require("../src/config/env");
-const { pool, ensurePostgres } = require("../src/db/postgres");
+const { pool, ensurePostgres, dbDriver } = require("../src/db/postgres");
 
 async function main() {
   await ensurePostgres();
@@ -7,15 +7,16 @@ async function main() {
   const identityResult = await pool.query(
     "SELECT current_database() AS database, current_user AS db_user, inet_server_addr()::text AS server_addr",
   );
-  const sslResult = await pool.query(
-    "SELECT ssl, version, cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()",
-  );
+  const sslResult =
+    dbDriver === "neon-http"
+      ? { rows: [{ ssl: true, version: "https", cipher: "neon-http" }] }
+      : await pool.query("SELECT ssl, version, cipher FROM pg_stat_ssl WHERE pid = pg_backend_pid()");
 
   const identity = identityResult.rows[0] || {};
   const sslInfo = sslResult.rows[0] || { ssl: false, version: null, cipher: null };
   const sslUsed = sslInfo.ssl === true;
 
-  if (env.pgSslMode && env.pgSslMode !== "disable" && !sslUsed) {
+  if (dbDriver !== "neon-http" && env.pgSslMode && env.pgSslMode !== "disable" && !sslUsed) {
     throw new Error(`SSL is not active for current connection while PGSSLMODE=${env.pgSslMode}`);
   }
 
@@ -27,6 +28,7 @@ async function main() {
     status: "ok",
     nodeEnv: env.nodeEnv,
     db: {
+      driver: dbDriver,
       host: env.pgHost,
       port: env.pgPort,
       database: identity.database || env.pgDatabase,

@@ -12,12 +12,25 @@ const realtimeRoutes = require("./realtime.routes");
 const contactRoutes = require("./contact.routes");
 const hurryRoutes = require("./hurry.routes");
 const supportRoutes = require("./support.routes");
+const { publicStats } = require("../controllers/public.controller");
+const paymentsController = require("../controllers/payments.controller");
+const { isPostgresReady, getPostgresBootstrapError } = require("../db/postgres");
 
 const router = express.Router();
 
 router.get("/health", (req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+  res.json({
+    status: isPostgresReady() ? "ok" : "starting",
+    databaseReady: isPostgresReady(),
+    databaseError: getPostgresBootstrapError(),
+    timestamp: new Date().toISOString(),
+  });
 });
+
+router.get("/stats", publicStats);
+router.post("/payments/subscription", paymentsController.createSubscriptionPayment);
+router.post("/payments/booking", paymentsController.createBookingPayment);
+router.post("/payments/:id/complete", paymentsController.completePayment);
 
 router.use("/auth", authRoutes);
 router.use("/categories", categoriesRoutes);

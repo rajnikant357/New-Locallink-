@@ -151,9 +151,6 @@ const LearnMore = () => {
           </p>
           <div className="flex flex-wrap gap-4 justify-center">
             <Link to="/auth">
-              <Button size="lg" variant="secondary">
-                Sign Up Now
-              </Button>
             </Link>
             <Link to="/register-provider">
               <Button size="lg" variant="outline" className="bg-transparent border-primary-foreground text-primary-foreground hover:bg-primary-foreground hover:text-primary">

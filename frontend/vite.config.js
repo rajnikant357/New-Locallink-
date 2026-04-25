@@ -15,6 +15,10 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  // Note: `server.proxy` applies to the Vite dev server only. For production
+  // builds set `VITE_API_BASE_URL` to your API base (for example
+  // `https://api.example.com/api/v1`) and set `base` as needed for hosting
+  // on GH Pages or subpaths.
   plugins: [react()],
   base: "/",
   resolve: {

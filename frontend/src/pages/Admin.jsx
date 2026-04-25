@@ -156,7 +156,7 @@ const Admin = () => {
         setUsers(usersRes.users || []);
         setProviders(providersRes.providers || []);
         setBookings(bookingsRes.bookings || []);
-        setContactMessages(messagesRes.contactMessages || []);
+        setContactMessages(messagesRes.contactMessages || messagesRes.messages || []);
       } catch (err) {
         if (!mounted) return;
         toast({

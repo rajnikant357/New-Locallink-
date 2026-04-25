@@ -1,29 +1,24 @@
+import React, { useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Check, X } from "lucide-react";
+import { api } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 
 const Pricing = () => {
+  const [loadingPlan, setLoadingPlan] = useState(null);
+
   const plans = [
     {
       name: "Free",
       price: "₹0",
       period: "forever",
       description: "Perfect for getting started",
-      features: [
-        "List your services",
-        "Basic profile page",
-        "Up to 10 bookings/month",
-        "Email notifications",
-        "Customer reviews",
-      ],
-      limitations: [
-        "No priority listing",
-        "No analytics",
-        "Limited support",
-      ],
-      cta: "Get Started",
+      features: ["List your services", "Basic profile page", "Up to 10 bookings/month", "Email notifications", "Customer reviews"],
+      limitations: ["No priority listing", "No analytics", "Limited support"],
+      cta: "Current Plan",
       popular: false,
     },
     {
@@ -42,7 +37,7 @@ const Pricing = () => {
         "Direct messaging",
       ],
       limitations: [],
-      cta: "Start Free Trial",
+      cta: "Buy Subscription",
       popular: true,
     },
     {
@@ -61,60 +56,69 @@ const Pricing = () => {
         "Performance reports",
       ],
       limitations: [],
-      cta: "Contact Sales",
+      cta: "Buy subscription",
       popular: false,
     },
   ];
 
+  async function handleSubscribe(plan) {
+    try {
+      setLoadingPlan(plan.name);
+      const res = await api("/payments/subscription", { method: "POST", body: JSON.stringify({ plan: plan.name }) });
+      if (res?.checkoutUrl) {
+        // For now open placeholder checkout URL; later gateway will redirect
+        window.open(res.checkoutUrl, "_blank");
+      } else {
+        toast({ title: "Subscription created", description: "Payment record created." });
+      }
+    } catch (err) {
+      toast({ title: "Payment failed", description: err?.message || "Try again", variant: "destructive" });
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
       <div className="flex-1 pb-24 md:pb-0">
-        {/* Hero */}
-  <section className="bg-gradient-to-r from-[#467ae9ff] to-[#1d4ed8] text-primary-foreground py-10 md:py-16">
+        <section className="bg-gradient-to-r from-[#467ae9ff] to-[#1d4ed8] text-primary-foreground py-10 md:py-16">
           <div className="container mx-auto px-3 md:px-4 text-center">
             <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">Simple, Transparent Pricing</h1>
-            <p className="text-base md:text-lg lg:text-xl opacity-90 max-w-2xl mx-auto">
-              Choose the plan that's right for your business
-            </p>
+            <p className="text-base md:text-lg lg:text-xl opacity-90 max-w-2xl mx-auto">Choose the plan that's right for your business</p>
           </div>
         </section>
 
-        {/* Pricing Cards */}
         <section className="py-8 md:py-16 bg-background">
           <div className="container mx-auto px-3 md:px-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-8 max-w-6xl mx-auto">
               {plans.map((plan) => (
-                <Card 
-                  key={plan.name} 
-                  className={`relative ${plan.popular ? 'border-primary shadow-lg md:scale-105' : ''}`}
-                >
+                <Card key={plan.name} className={`relative ${plan.popular ? "border-primary shadow-lg md:scale-105" : ""}`}>
                   {plan.popular && (
                     <div className="absolute -top-3 md:-top-4 left-1/2 transform -translate-x-1/2">
-                      <span className="bg-primary text-primary-foreground px-3 md:px-4 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold">
-                        Most Popular
-                      </span>
+                      <span className="bg-primary text-primary-foreground px-3 md:px-4 py-0.5 md:py-1 rounded-full text-xs md:text-sm font-semibold">Most Popular</span>
                     </div>
                   )}
-                  
                   <CardContent className="p-5 md:p-8">
                     <h3 className="text-xl md:text-2xl font-bold mb-1 md:mb-2">{plan.name}</h3>
                     <p className="text-muted-foreground mb-3 md:mb-4 text-sm md:text-base">{plan.description}</p>
-                    
+
                     <div className="mb-4 md:mb-6">
                       <span className="text-3xl md:text-4xl font-bold">{plan.price}</span>
                       <span className="text-muted-foreground text-sm md:text-base">/{plan.period}</span>
                     </div>
 
-                    <Button 
-                      className="w-full mb-4 md:mb-6 h-9 md:h-10 text-sm md:text-base" 
-                      variant={plan.popular ? "default" : "outline"}
-                    >
-                      {plan.cta}
-                    </Button>
+                    {plan.price === "₹0" || plan.name === "Free" ? (
+                      <Button as="div" variant="outline" className="w-full mb-4 md:mb-6 h-9 md:h-10 text-sm md:text-base flex items-center justify-center font-medium">
+                        {plan.cta}
+                      </Button>
+                    ) : (
+                      <Button onClick={() => handleSubscribe(plan)} variant={plan.popular ? "default" : "outline"} disabled={loadingPlan !== null}>
+                        {loadingPlan === plan.name ? "Processing..." : plan.cta}
+                      </Button>
+                    )}
 
-                    <div className="space-y-2 md:space-y-3">
+                    <div className="space-y-2 md:space-y-3 mt-4">
                       {plan.features.map((feature) => (
                         <div key={feature} className="flex items-start gap-2">
                           <Check className="h-4 w-4 md:h-5 md:w-5 text-green-500 flex-shrink-0 mt-0.5" />
@@ -135,47 +139,14 @@ const Pricing = () => {
           </div>
         </section>
 
-        {/* FAQ */}
         <section className="py-8 md:py-16 bg-muted/30">
           <div className="container mx-auto px-3 md:px-4">
             <h2 className="text-2xl md:text-3xl font-bold text-center mb-6 md:mb-12">Frequently Asked Questions</h2>
-            
             <div className="max-w-3xl mx-auto space-y-3 md:space-y-6">
-              <Card>
-                <CardContent className="p-4 md:p-6">
-                  <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Can I change plans later?</h3>
-                  <p className="text-muted-foreground text-xs md:text-base">
-                    Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4 md:p-6">
-                  <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Is there a free trial?</h3>
-                  <p className="text-muted-foreground text-xs md:text-base">
-                    Yes, Professional and Business plans come with a 14-day free trial. No credit card required.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4 md:p-6">
-                  <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">What payment methods do you accept?</h3>
-                  <p className="text-muted-foreground text-xs md:text-base">
-                    We accept UPI, credit/debit cards, net banking, and other popular payment methods.
-                  </p>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardContent className="p-4 md:p-6">
-                  <h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Can I cancel anytime?</h3>
-                  <p className="text-muted-foreground text-xs md:text-base">
-                    Yes, you can cancel your subscription at any time. Your account will remain active until the end of the billing period.
-                  </p>
-                </CardContent>
-              </Card>
+              <Card><CardContent className="p-4 md:p-6"><h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Can I change plans later?</h3><p className="text-muted-foreground text-xs md:text-base">Yes, you can upgrade or downgrade your plan at any time. Changes take effect immediately.</p></CardContent></Card>
+              <Card><CardContent className="p-4 md:p-6"><h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Is there a free trial?</h3><p className="text-muted-foreground text-xs md:text-base">Yes, Professional and Business plans come with a 14-day free trial. No credit card required.</p></CardContent></Card>
+              <Card><CardContent className="p-4 md:p-6"><h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">What payment methods do you accept?</h3><p className="text-muted-foreground text-xs md:text-base">We accept UPI, credit/debit cards, net banking, and other popular payment methods.</p></CardContent></Card>
+              <Card><CardContent className="p-4 md:p-6"><h3 className="font-semibold mb-1 md:mb-2 text-sm md:text-base">Can I cancel anytime?</h3><p className="text-muted-foreground text-xs md:text-base">Yes, you can cancel your subscription at any time. Your account will remain active until the end of the billing period.</p></CardContent></Card>
             </div>
           </div>
         </section>

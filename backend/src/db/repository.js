@@ -882,6 +882,43 @@ async function createContactMessage(values) {
   return mapContactMessageRow(rows[0]);
 }
 
+async function createPayment(values) {
+  const { rows } = await pool.query(
+    `
+    INSERT INTO app_payments (
+      id, type, related_id, user_id, provider_id, amount, currency, status, provider_payload, gateway_session
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    RETURNING *
+  `,
+    [
+      values.id,
+      values.type,
+      values.relatedId || null,
+      values.userId || null,
+      values.providerId || null,
+      values.amount,
+      values.currency || "INR",
+      values.status || "pending",
+      values.providerPayload ? JSON.stringify(values.providerPayload) : null,
+      values.gatewaySession || null,
+    ],
+  );
+  return rows[0];
+}
+
+async function getPaymentById(id) {
+  const { rows } = await pool.query("SELECT * FROM app_payments WHERE id = $1", [id]);
+  return rows[0] || null;
+}
+
+async function updatePaymentStatus(id, status, gatewaySession) {
+  const { rows } = await pool.query(
+    `UPDATE app_payments SET status = $1, gateway_session = COALESCE($2, gateway_session), updated_at = NOW() WHERE id = $3 RETURNING *`,
+    [status, gatewaySession || null, id],
+  );
+  return rows[0] || null;
+}
+
 async function updateContactMessage(id, values) {
   const clause = buildUpdateClause(values);
   if (!clause) {
@@ -911,6 +948,13 @@ async function deleteContactMessage(id) {
 async function countBookings() {
   const { rows } = await pool.query("SELECT COUNT(*) AS count FROM app_bookings");
   return Number(rows[0]?.count || 0);
+}
+
+async function getAverageProviderRating() {
+  const { rows } = await pool.query(
+    `SELECT AVG(rating)::numeric(3,2) AS avg_rating FROM app_providers`
+  );
+  return rows[0] && rows[0].avg_rating ? Number(rows[0].avg_rating) : 0;
 }
 
 async function countUnreadNotifications() {
@@ -1058,6 +1102,10 @@ module.exports = {
   listActiveHurryRequests,
   listHurryResponses,
   addHurryResponse,
+  createPayment,
+  getPaymentById,
+  updatePaymentStatus,
+  getAverageProviderRating,
 };
 
 

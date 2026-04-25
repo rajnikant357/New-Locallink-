@@ -13,6 +13,7 @@ if (-not (Test-Path ".env")) {
   if (Test-Path ".env.example") {
     Copy-Item ".env.example" ".env"
     Write-Host "Created backend/.env from .env.example"
+    Write-Warning "The created .env contains development placeholders. Replace secrets before deploying to production and do NOT commit .env to source control."
   } else {
     Write-Error "Missing .env.example in backend/"
   }

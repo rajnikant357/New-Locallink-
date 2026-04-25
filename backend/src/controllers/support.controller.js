@@ -12,7 +12,7 @@ const askSchema = z.object({
 const knowledge = [
   {
     match: [/login|sign.?in|auth/i],
-    answer: "Use the Auth page to register or sign in. Auth endpoints: POST /auth/register, POST /auth/login, POST /auth/refresh. Tokens are stored in localStorage plus an httpOnly refresh cookie.",
+    answer: "Use the Auth page to register or sign in. Auth endpoints: POST /auth/register, POST /auth/login, POST /auth/refresh. Sessions use httpOnly access/refresh cookies.",
   },
   {
     match: [/provider/i, /register/i],

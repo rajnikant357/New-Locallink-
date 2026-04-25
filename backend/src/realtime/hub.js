@@ -29,7 +29,6 @@ function publishToUser(userId, event, payload) {
     try {
       writeEvent(res, event, payload);
     } catch {
-      // Ignore disconnected stream write failures.
     }
   }
 }
@@ -40,7 +39,6 @@ function publishToAll(event, payload) {
       try {
         writeEvent(res, event, payload);
       } catch {
-        // ignore
       }
     }
   }

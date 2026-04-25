@@ -71,7 +71,7 @@ function setRefreshCookie(res, token) {
   res.cookie("ll_refresh", token, {
     httpOnly: true,
     secure: env.isProd,
-    sameSite: "lax",
+    sameSite: env.isProd ? "none" : "lax",
     path: "/api/v1/auth",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
@@ -81,7 +81,7 @@ function clearRefreshCookie(res) {
   res.clearCookie("ll_refresh", {
     httpOnly: true,
     secure: env.isProd,
-    sameSite: "lax",
+    sameSite: env.isProd ? "none" : "lax",
     path: "/api/v1/auth",
   });
 }
@@ -90,7 +90,7 @@ function setAccessCookie(res, token) {
   res.cookie("ll_access", token, {
     httpOnly: true,
     secure: env.isProd,
-    sameSite: "lax",
+    sameSite: env.isProd ? "none" : "lax",
     path: "/",
     maxAge: 15 * 60 * 1000,
   });
@@ -100,7 +100,7 @@ function clearAccessCookie(res) {
   res.clearCookie("ll_access", {
     httpOnly: true,
     secure: env.isProd,
-    sameSite: "lax",
+    sameSite: env.isProd ? "none" : "lax",
     path: "/",
   });
 }

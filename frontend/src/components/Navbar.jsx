@@ -136,7 +136,7 @@ const Navbar = () => {
               <Link to="/providers" className="text-foreground hover:text-primary transition-colors">Providers</Link>
               <Link to="/how-it-works" className="text-foreground hover:text-primary transition-colors">How It Works</Link>
               <Link to="/about" className="text-foreground hover:text-primary transition-colors">About</Link>
-              <Link to="/hurry-mode-demo" className="text-foreground hover:text-primary transition-colors">Hurry Mode</Link>
+              <Link to="/hurry" className="text-foreground hover:text-primary transition-colors">Hurry Mode</Link>
               {user?.type === "admin" && (
                 <Link to="/admin" className="text-foreground hover:text-primary transition-colors">Admin</Link>
               )}

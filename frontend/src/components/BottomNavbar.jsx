@@ -45,7 +45,7 @@ const BottomNavbar = () => {
 
           {/* Hurry Mode - Circular Button */}
           <Link
-            to="/hurry-mode-demo"
+            to="/hurry"
             className="flex flex-col items-center text-center mx-4"
           >
             <div className="flex flex-col items-center">
@@ -57,7 +57,7 @@ const BottomNavbar = () => {
               >
                 <Zap className="h-4 w-4 text-white" />
               </div>
-              <span className={`text-[9px] font-semibold ${isActive("/hurry-mode-demo") ? "text-primary" : "text-black"}`}>Hurry</span>
+              <span className={`text-[9px] font-semibold ${isActive("/hurry") ? "text-primary" : "text-black"}`}>Hurry</span>
             </div>
           </Link>
 

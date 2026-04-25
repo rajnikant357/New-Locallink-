@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         // Don't force-logout on temporary backend throttling/outage.
-        if (error?.status === 401 || error?.status === 403 && mounted) {
+        if ((error?.status === 401 || error?.status === 403) && mounted) {
           setUser(null);
         }
       } finally {

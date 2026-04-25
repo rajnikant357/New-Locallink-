@@ -1,13 +1,58 @@
+import React, { useEffect, useState, useRef } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Target, Users, Heart, TrendingUp } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 
+function useAnimatedNumber(target, duration = 800) {
+  const [value, setValue] = useState(0);
+  const rafRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof target !== "number") return;
+    const start = performance.now();
+    const from = value;
+    const diff = target - from;
+
+    function step(now) {
+      const t = Math.min(1, (now - start) / duration);
+      setValue(Math.round(from + diff * t));
+      if (t < 1) rafRef.current = requestAnimationFrame(step);
+    }
+
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target]);
+
+  return value;
+}
+
 const About = () => {
+  const [stats, setStats] = useState({ providersCount: 0, bookingsCount: 0, averageRating: 0 });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/v1/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data && data.stats) setStats(data.stats);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const animatedProviders = useAnimatedNumber(stats.providersCount || 0);
+  const animatedJobs = useAnimatedNumber(stats.bookingsCount || 0);
+  const displayRating = stats.averageRating ? Number(stats.averageRating).toFixed(1) : "0.0";
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
-      
+
       <div className="flex-1 pb-24 md:pb-0">
         {/* Hero */}
   <section className="bg-gradient-to-r from-[#467ae9ff] to-[#1d4ed8] text-primary-foreground py-10 md:py-16">
@@ -49,7 +94,7 @@ const About = () => {
                   <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                     <Users className="h-7 w-7 md:h-8 md:w-8 text-primary" />
                   </div>
-                  <h3 className="text-lg md:text-xl font-semibold mb-2">200+ Providers</h3>
+                  <h3 className="text-lg md:text-xl font-semibold mb-2">{animatedProviders.toLocaleString()} Providers</h3>
                   <p className="text-muted-foreground text-xs md:text-sm">
                     Verified professionals ready to serve you
                   </p>
@@ -61,7 +106,7 @@ const About = () => {
                   <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                     <Heart className="h-7 w-7 md:h-8 md:w-8 text-primary" />
                   </div>
-                  <h3 className="text-lg md:text-xl font-semibold mb-2">5000+ Jobs</h3>
+                  <h3 className="text-lg md:text-xl font-semibold mb-2">{animatedJobs.toLocaleString()} Jobs</h3>
                   <p className="text-muted-foreground text-xs md:text-sm">
                     Successfully completed with satisfaction
                   </p>
@@ -73,7 +118,7 @@ const About = () => {
                   <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                     <TrendingUp className="h-7 w-7 md:h-8 md:w-8 text-primary" />
                   </div>
-                  <h3 className="text-lg md:text-xl font-semibold mb-2">4.7 Rating</h3>
+                  <h3 className="text-lg md:text-xl font-semibold mb-2">{displayRating} Rating</h3>
                   <p className="text-muted-foreground text-xs md:text-sm">
                     Average customer satisfaction score
                   </p>
@@ -90,7 +135,7 @@ const About = () => {
               <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Our Story</h2>
               <div className="space-y-3 md:space-y-4 text-muted-foreground text-sm md:text-base leading-relaxed">
                 <p>
-                  LocalLink started in 2023 in Sikandarpur, Ballia, when our founder struggled to find 
+                  LocalLink started in 2025 in Sikandarpur, Ballia, when our founder struggled to find 
                   a reliable electrician for a home repair. After hours of searching and making countless 
                   phone calls, it became clear that there was a need for a better way to connect with 
                   local service providers.

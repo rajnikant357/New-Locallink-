@@ -563,7 +563,7 @@ const Settings = () => {
                         <Label htmlFor="current-password">Current Password</Label>
                         <Input
                           id="current-password"
-                          type="text"
+                          type="password"
                           placeholder="Enter current password"
                           value={security.currentPassword}
                           onChange={(event) =>
@@ -575,7 +575,7 @@ const Settings = () => {
                         <Label htmlFor="new-password">New Password</Label>
                         <Input
                           id="new-password"
-                          type="text"
+                          type="password"
                           placeholder="Enter new password"
                           value={security.newPassword}
                           onChange={(event) =>
@@ -587,7 +587,7 @@ const Settings = () => {
                         <Label htmlFor="confirm-password">Confirm New Password</Label>
                         <Input
                           id="confirm-password"
-                          type="text"
+                          type="password"
                           placeholder="Confirm new password"
                           value={security.confirmPassword}
                           onChange={(event) =>

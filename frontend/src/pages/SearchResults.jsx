@@ -149,9 +149,9 @@ const SearchResults = () => {
                 </p>
               </div>
 
-              <form onSubmit={handleSearchSubmit} className="bg-white rounded-xl border p-3 md:p-4 shadow-sm">
+              <form onSubmit={handleSearchSubmit} className="bg-white rounded-xl border p-3 md:p-4 shadow-sm dark:bg-neutral-900">
                 <div className="flex flex-col md:flex-row gap-3">
-                  <div className="flex items-center flex-1 rounded-md border px-3 bg-white">
+                  <div className="flex items-center flex-1 rounded-md border px-3 bg-white dark:bg-neutral-900">
                     <Search className="h-4 w-4 text-muted-foreground" />
                     <Input
                       value={serviceInput}
@@ -160,7 +160,7 @@ const SearchResults = () => {
                       className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
                   </div>
-                  <div className="flex items-center flex-1 rounded-md border px-3 bg-white">
+                  <div className="flex items-center flex-1 rounded-md border px-3 bg-white dark:bg-neutral-900">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
                     <Input
                       value={locationInput}

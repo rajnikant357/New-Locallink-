@@ -1,4 +1,5 @@
 const { Pool } = require("pg");
+const { neon, neonConfig } = require("@neondatabase/serverless");
 const { env } = require("../config/env");
 const { defaultProviderCategories } = require("./default-categories");
 
@@ -14,29 +15,116 @@ const legacyParentCategoryNames = [
 ];
 
 const poolConfig = env.pgConnectionString
-  ? { connectionString: env.pgConnectionString }
+  ? {
+      connectionString: env.pgConnectionString,
+      connectionTimeoutMillis: 30_000,
+      idleTimeoutMillis: 30_000,
+      max: 10,
+      allowExitOnIdle: true,
+    }
   : {
       host: env.pgHost,
       port: env.pgPort,
       database: env.pgDatabase,
       user: env.pgUser,
       password: env.pgPassword,
+      connectionTimeoutMillis: 30_000,
+      idleTimeoutMillis: 30_000,
+      max: 10,
+      allowExitOnIdle: true,
     };
 
 if (env.pgSslMode !== undefined) {
   poolConfig.ssl = env.pgSsl;
 }
 
-const pool = new Pool(poolConfig);
+function shouldUseNeonHttp() {
+  return Boolean(env.pgConnectionString && /\.neon\.tech$/i.test(env.pgHost));
+}
+
+function createNeonHttpPool(connectionString) {
+  neonConfig.fetchEndpoint = (host) => `https://${host}/sql`;
+  const sql = neon(connectionString);
+
+  return {
+    async query(text, params = []) {
+      const rows = await sql.query(text, params);
+      return { rows };
+    },
+    async connect() {
+      return {
+        async query(text, params = []) {
+          if (["BEGIN", "COMMIT", "ROLLBACK"].includes(String(text).trim().toUpperCase())) {
+            return { rows: [] };
+          }
+          const rows = await sql.query(text, params);
+          return { rows };
+        },
+        release() {},
+      };
+    },
+    async end() {},
+  };
+}
+
+const dbDriver = shouldUseNeonHttp() ? "neon-http" : "pg";
+const pool = dbDriver === "neon-http" ? createNeonHttpPool(env.pgConnectionString) : new Pool(poolConfig);
 
 let initialized = false;
+let initializingPromise = null;
+let lastBootstrapError = null;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTransientDbError(error) {
+  const message = String(error?.message || "").toLowerCase();
+  return (
+    error?.code === "ETIMEDOUT" ||
+    error?.code === "ECONNRESET" ||
+    error?.code === "57P01" ||
+    message.includes("connection terminated unexpectedly") ||
+    message.includes("connection terminated due to connection timeout") ||
+    message.includes("timeout")
+  );
+}
+
+async function runWithRetry(fn, { attempts = 5, initialDelayMs = 1000 } = {}) {
+  let lastError = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      lastBootstrapError = error;
+      if (!isTransientDbError(error) || attempt === attempts) {
+        throw error;
+      }
+
+      const delayMs = initialDelayMs * 2 ** (attempt - 1);
+      // eslint-disable-next-line no-console
+      console.warn(
+        `Database bootstrap attempt ${attempt} failed; retrying in ${delayMs}ms: ${error.message}`,
+      );
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
+}
 
 async function ensurePostgres() {
   if (initialized) {
     return;
   }
 
-  await pool.query(`
+  if (initializingPromise) {
+    return initializingPromise;
+  }
+
+  initializingPromise = runWithRetry(async () => {
+    await pool.query(`
     CREATE TABLE IF NOT EXISTS app_users (
       id TEXT PRIMARY KEY,
       name TEXT,
@@ -186,22 +274,44 @@ async function ensurePostgres() {
       to_user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
       text TEXT,
       edited_at TIMESTAMPTZ,
+      forwarded_from_message_id TEXT,
       forwarded_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE app_messages ADD COLUMN IF NOT EXISTS forwarded_from_message_id TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_notifications (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
+      from_user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
+      message_id TEXT REFERENCES app_messages(id) ON DELETE CASCADE,
+      booking_id TEXT REFERENCES app_bookings(id) ON DELETE CASCADE,
       type TEXT,
       title TEXT,
       message TEXT,
       data JSONB,
+      payload JSONB,
+      is_read BOOLEAN DEFAULT FALSE,
       read_at TIMESTAMPTZ,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
+  `);
+  await pool.query(`ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS from_user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE`);
+  await pool.query(`ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS message_id TEXT REFERENCES app_messages(id) ON DELETE CASCADE`);
+  await pool.query(`ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS booking_id TEXT REFERENCES app_bookings(id) ON DELETE CASCADE`);
+  await pool.query(`ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS payload JSONB`);
+  await pool.query(`ALTER TABLE app_notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN DEFAULT FALSE`);
+  await pool.query(`
+    UPDATE app_notifications
+    SET payload = data
+    WHERE payload IS NULL AND data IS NOT NULL
+  `);
+  await pool.query(`
+    UPDATE app_notifications
+    SET is_read = TRUE
+    WHERE is_read = FALSE AND read_at IS NOT NULL
   `);
 
   await pool.query(`
@@ -209,11 +319,15 @@ async function ensurePostgres() {
       id TEXT PRIMARY KEY,
       name TEXT,
       email TEXT,
+      phone TEXT,
+      subject TEXT,
       message TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
+  await pool.query(`ALTER TABLE app_contact_messages ADD COLUMN IF NOT EXISTS phone TEXT`);
+  await pool.query(`ALTER TABLE app_contact_messages ADD COLUMN IF NOT EXISTS subject TEXT`);
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_hurry_requests (
@@ -243,6 +357,26 @@ async function ensurePostgres() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_payments (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      related_id TEXT,
+      user_id TEXT,
+      amount NUMERIC NOT NULL,
+      currency TEXT DEFAULT 'INR',
+      provider_id TEXT,
+      status TEXT DEFAULT 'pending',
+      provider_payload JSONB,
+      gateway_session TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  await pool.query(`ALTER TABLE app_payments ADD COLUMN IF NOT EXISTS gateway_session TEXT`);
+  await pool.query(`ALTER TABLE app_payments ADD COLUMN IF NOT EXISTS provider_id TEXT`);
+
   await pool.query(
     `
     INSERT INTO app_categories (id, name, description, subcategories, subcategory_details, is_active)
@@ -269,10 +403,32 @@ async function ensurePostgres() {
     ]),
   );
 
-  initialized = true;
+    initialized = true;
+    lastBootstrapError = null;
+  }, { attempts: 5, initialDelayMs: 1000 }).finally(() => {
+    initializingPromise = null;
+  });
+
+  return initializingPromise;
+}
+
+function isPostgresReady() {
+  return initialized;
+}
+
+function getPostgresBootstrapError() {
+  return lastBootstrapError
+    ? {
+        message: lastBootstrapError.message,
+        code: lastBootstrapError.code || null,
+      }
+    : null;
 }
 
 module.exports = {
   pool,
   ensurePostgres,
+  isPostgresReady,
+  getPostgresBootstrapError,
+  dbDriver,
 };

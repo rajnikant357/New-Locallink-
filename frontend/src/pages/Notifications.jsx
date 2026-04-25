@@ -1,3 +1,4 @@
+import { useCallback } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -70,20 +71,30 @@ const Notifications = () => {
     };
   }, []);
 
-  useRealtimeEvents((eventName, payload) => {
-    if (eventName === "notification.new") {
-      // Refresh list for consistency with persisted server state.
-      api("/notifications/me")
-        .then((response) => setNotifications(response.notifications || []))
-        .catch(() => undefined);
-    } else if (eventName === "notification.updated" && payload?.notification) {
-      setNotifications((prev) =>
-        prev.map((item) => (item.id === payload.notification.id ? payload.notification : item)),
-      );
-    } else if (eventName === "notification.bulkUpdated") {
-      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-    }
-  });
+useRealtimeEvents(handleRealtime);
+
+const handleRealtime = useCallback((eventName, payload) => {
+  if (eventName === "notification.new") {
+    setNotifications((prev) => [
+      payload.notification,
+      ...prev,
+    ]);
+  }
+
+  else if (eventName === "notification.updated" && payload?.notification) {
+    setNotifications((prev) =>
+      prev.map((item) =>
+        item.id === payload.notification.id ? payload.notification : item
+      )
+    );
+  }
+
+  else if (eventName === "notification.bulkUpdated") {
+    setNotifications((prev) =>
+      prev.map((item) => ({ ...item, isRead: true }))
+    );
+  }
+}, []);
 
   const markAsRead = async (id) => {
     try {
@@ -195,4 +206,6 @@ const Notifications = () => {
   );
 };
 
+
 export default Notifications;
+

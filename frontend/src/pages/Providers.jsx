@@ -88,7 +88,7 @@ const Providers = () => {
     return () => {
       mounted = false;
     };
-  }, [query, locationQuery, categoryParam, ratingParam, priceMinParam, priceMaxParam, verifiedParam]);
+  }, [query, locationQuery, categoryParam, ratingParam, billingParam, priceMinParam, priceMaxParam, verifiedParam]);
 
   useEffect(() => {
     let mounted = true;
@@ -157,7 +157,7 @@ const Providers = () => {
             <CardContent className="p-4 space-y-3">
               <form onSubmit={handleSearchSubmit} className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="flex items-center rounded-md border px-3 bg-white">
+                  <div className="flex items-center rounded-md border px-3 bg-white dark:bg-neutral-900">
                     <Search className="h-4 w-4 text-muted-foreground" />
                     <Input
                       value={serviceInput}
@@ -166,7 +166,7 @@ const Providers = () => {
                       className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                     />
                   </div>
-                  <div className="flex items-center rounded-md border px-3 bg-white">
+                  <div className="flex items-center rounded-md border px-3 bg-white dark:bg-neutral-900">
                     <MapPin className="h-4 w-4 text-muted-foreground" />
                     <Input
                       value={locationInput}

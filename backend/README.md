@@ -11,14 +11,32 @@ Secure JavaScript backend for LocalLink using Express.
 - PostgreSQL persistence (`pg`)
 
 ## Run
-1. Copy `.env.example` to `.env`.
-2. Set `DATABASE_URL` (or `PGHOST`/`PGPORT`/`PGDATABASE`/`PGUSER`/`PGPASSWORD`).
-3. Set `PGSSLMODE=require` for managed Postgres services (for example Render).
-4. Optional strict TLS verification: `PGSSL_REJECT_UNAUTHORIZED=true`.
-5. Ensure PostgreSQL is running and database/user are created.
-6. Install dependencies: `npm install`
-7. Start dev server: `npm run dev`
-8. Validate DB connectivity + SSL: `npm run validate:db`
+1. Copy `.env.example` to `.env` for local development.
+2. In production, provide secrets via your host/CI secrets (DO NOT store secrets in the repo).
+
+Required production env vars (examples):
+
+- `ACCESS_TOKEN_SECRET` — strong random secret (>=32 chars)
+- `REFRESH_TOKEN_SECRET` — strong random secret (different from access secret)
+- `DATABASE_URL` or `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`/`PGPORT`
+- `FRONTEND_URL` — URL of your frontend (used for password reset links)
+- `CORS_ORIGINS` — comma-separated allowed origins for CORS (e.g. `https://app.example.com`)
+- `NODE_ENV=production` and `PORT` as needed
+
+Optional/operational env vars:
+
+- `PGSSLMODE` / `PGSSL_REJECT_UNAUTHORIZED` — TLS config for Postgres
+- `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`
+- `ACCESS_TOKEN_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_IN`
+
+Local dev quickstart:
+1. Copy `.env.example` to `.env` and update values for local Postgres.
+2. Install dependencies: `npm install`
+3. Start dev server: `npm run dev`
+4. Validate DB connectivity + SSL: `npm run validate:db`
+
+Note: the server enforces strong token secrets in production. If `NODE_ENV=production`
+and token secrets look like placeholders, the server will refuse to start — this is intentional.
 
 Base URL: `http://localhost:4000/api/v1`
 

@@ -220,17 +220,6 @@ const RegisterProvider = () => {
           </div>
         </section>
 
-        <section className="py-12 bg-muted/30">
-          <div className="container mx-auto px-4">
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
-              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><Shield className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">Verified Badge</h3><p className="text-sm text-muted-foreground">Get a verified badge to build trust</p></CardContent></Card>
-              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><TrendingUp className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">More Clients</h3><p className="text-sm text-muted-foreground">Reach thousands of potential customers</p></CardContent></Card>
-              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><Calendar className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">Easy Scheduling</h3><p className="text-sm text-muted-foreground">Manage your bookings efficiently</p></CardContent></Card>
-              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><Award className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">Build Reputation</h3><p className="text-sm text-muted-foreground">Get reviews and grow your profile</p></CardContent></Card>
-            </div>
-          </div>
-        </section>
-
         <section className="py-12 bg-background">
           <div className="container mx-auto px-4">
             <div className="max-w-3xl mx-auto">
@@ -367,6 +356,16 @@ const RegisterProvider = () => {
                   </form>
                 </CardContent>
               </Card>
+            </div>
+          </div>
+        </section>
+        <section className="py-12 bg-muted/30">
+          <div className="container mx-auto px-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-6xl mx-auto">
+              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><Shield className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">Verified Badge</h3><p className="text-sm text-muted-foreground">Get a verified badge to build trust</p></CardContent></Card>
+              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><TrendingUp className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">More Clients</h3><p className="text-sm text-muted-foreground">Reach thousands of potential customers</p></CardContent></Card>
+              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><Calendar className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">Easy Scheduling</h3><p className="text-sm text-muted-foreground">Manage your bookings efficiently</p></CardContent></Card>
+              <Card><CardContent className="p-6 text-center"><div className="w-12 h-12 mx-auto mb-3 bg-primary/10 rounded-full flex items-center justify-center"><Award className="h-6 w-6 text-primary" /></div><h3 className="font-semibold mb-2">Build Reputation</h3><p className="text-sm text-muted-foreground">Get reviews and grow your profile</p></CardContent></Card>
             </div>
           </div>
         </section>

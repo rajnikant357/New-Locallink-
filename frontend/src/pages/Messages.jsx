@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 const Messages = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -50,6 +50,7 @@ const Messages = () => {
   const messageInputRef = useRef(null);
   const messageNodeRefs = useRef(new Map());
   const suppressNextBottomScrollRef = useRef(false);
+  const markReadInFlightRef = useRef(new Set());
 
   const closeMessagesOverlay = () => {
     if (window.history.length > 1) {
@@ -66,13 +67,13 @@ const Messages = () => {
   };
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    if (!authLoading && !isAuthenticated) {
       navigate("/auth");
     }
-  }, [isAuthenticated, navigate]);
+  }, [authLoading, isAuthenticated, navigate]);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (authLoading || !isAuthenticated) return;
 
     let mounted = true;
 
@@ -132,10 +133,10 @@ const Messages = () => {
     return () => {
       mounted = false;
     };
-  }, [isAuthenticated, location.state]);
+  }, [authLoading, isAuthenticated, location.state]);
 
   useEffect(() => {
-    if (!selectedUser?.id || !isAuthenticated) {
+    if (!selectedUser?.id || authLoading || !isAuthenticated) {
       setMessages([]);
       return;
     }
@@ -169,7 +170,7 @@ const Messages = () => {
     return () => {
       mounted = false;
     };
-  }, [selectedUser, isAuthenticated]);
+  }, [selectedUser, authLoading, isAuthenticated]);
 
   const sortedMessages = useMemo(() => {
     return [...messages].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
@@ -188,13 +189,18 @@ const Messages = () => {
       }
 
       suppressNextBottomScrollRef.current = true;
-
-      api(`/notifications/messages/${selectedUser.id}/read`, { method: "PATCH" })
-        .then(() => {
-          setUnreadByUserId((prev) => ({ ...prev, [selectedUser.id]: 0 }));
-          setUnreadMessageIdsByUserId((prev) => ({ ...prev, [selectedUser.id]: [] }));
-        })
-        .catch(() => undefined);
+      if (!markReadInFlightRef.current.has(selectedUser.id)) {
+        markReadInFlightRef.current.add(selectedUser.id);
+        api(`/notifications/messages/${selectedUser.id}/read`, { method: "PATCH" })
+          .then(() => {
+            setUnreadByUserId((prev) => ({ ...prev, [selectedUser.id]: 0 }));
+            setUnreadMessageIdsByUserId((prev) => ({ ...prev, [selectedUser.id]: [] }));
+          })
+          .catch(() => undefined)
+          .finally(() => {
+            markReadInFlightRef.current.delete(selectedUser.id);
+          });
+      }
       return;
     }
 
@@ -405,7 +411,14 @@ const Messages = () => {
       const messageId = payload?.notification?.messageId;
       if (notificationType === "message" && fromUserId) {
         if (selectedUser?.id === fromUserId) {
-          api(`/notifications/messages/${fromUserId}/read`, { method: "PATCH" }).catch(() => undefined);
+          if (!markReadInFlightRef.current.has(fromUserId)) {
+            markReadInFlightRef.current.add(fromUserId);
+            api(`/notifications/messages/${fromUserId}/read`, { method: "PATCH" })
+              .catch(() => undefined)
+              .finally(() => {
+                markReadInFlightRef.current.delete(fromUserId);
+              });
+          }
           setUnreadByUserId((prev) => ({ ...prev, [fromUserId]: 0 }));
           setUnreadMessageIdsByUserId((prev) => ({ ...prev, [fromUserId]: [] }));
         } else {
@@ -628,5 +641,6 @@ const Messages = () => {
     </div>
   );
 };
+
 
 export default Messages;

@@ -1,4 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api/v1";
+let refreshPromise = null;
+
 async function request(path, options = {}) {
   const { _retry, ...fetchOptions } = options;
   const headers = {
@@ -30,6 +32,16 @@ export async function refreshSession() {
   return payload;
 }
 
+async function ensureSingleRefresh() {
+  if (!refreshPromise) {
+    refreshPromise = refreshSession().finally(() => {
+      refreshPromise = null;
+    });
+  }
+
+  return refreshPromise;
+}
+
 export async function api(path, options = {}) {
   try {
     return await request(path, options);
@@ -40,10 +52,8 @@ export async function api(path, options = {}) {
 
     if (error.status === 401 && !options._retry && shouldTryRefresh) {
       try {
-        await refreshSession();
+        await ensureSingleRefresh();
       } catch (refreshError) {
-        // Clear local auth only when refresh token is invalid/expired.
-        // For transient failures like 429, keep the session token in place.
         throw refreshError;
       }
       return request(path, { ...options, _retry: true });

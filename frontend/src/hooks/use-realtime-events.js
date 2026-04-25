@@ -12,11 +12,17 @@ const EVENT_NAMES = [
   "notification.bulkUpdated",
   "booking.new",
   "booking.updated",
+  "hurry.new",
+  "hurry.accepted",
+  "hurry.cancelled",
 ];
 
 let sharedSource = null;
 let detachHandlers = null;
 const subscribers = new Set();
+let pollingInterval = null;
+let cachedConversations = new Map();
+let seenNotificationIds = new Set();
 
 function safeParse(raw) {
   try {
@@ -37,6 +43,10 @@ function closeSharedSource() {
   detachHandlers = null;
   sharedSource?.close();
   sharedSource = null;
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
 }
 
 function ensureSharedSource() {
@@ -58,11 +68,26 @@ function ensureSharedSource() {
   });
 
   const errorListener = () => {
-    // EventSource will retry automatically. Keep the shared instance unless
-    // the last subscriber unsubscribes or the token changes.
+    // EventSource will retry automatically. If SSE errors before opening,
+    // start polling as a fallback. Keep the shared instance unless the last
+    // subscriber unsubscribes or the token changes.
+    console.debug("SSE error on /realtime/stream");
+    if (!sseOpened) startPolling?.();
   };
 
   source.addEventListener("error", errorListener);
+
+  let sseOpened = false;
+  const openListener = () => {
+    sseOpened = true;
+    console.debug("SSE opened, disabling polling");
+    if (pollingInterval) {
+      clearInterval(pollingInterval);
+      pollingInterval = null;
+    }
+  };
+
+  source.addEventListener("open", openListener);
 
   sharedSource = source;
   detachHandlers = () => {
@@ -70,7 +95,79 @@ function ensureSharedSource() {
       source.removeEventListener(eventName, listener);
     }
     source.removeEventListener("error", errorListener);
+    source.removeEventListener("open", openListener);
   };
+
+  // Polling fallback: only start if SSE doesn't open within a short timeout
+  // or if SSE later reports an error. Seed caches once to avoid firing events
+  // for existing items.
+  (async () => {
+    try {
+      const seedConvRes = await fetch(`${API_BASE_URL}/messages/conversations/me`, { credentials: "include" });
+      if (seedConvRes.ok) {
+        const seedJson = await seedConvRes.json();
+        const seedConvs = seedJson.conversations || [];
+        for (const conv of seedConvs) {
+          const otherId = conv.user?.id;
+          const last = conv.lastMessage;
+          if (otherId && last) cachedConversations.set(otherId, last.id);
+        }
+      }
+
+      const seedNotifRes = await fetch(`${API_BASE_URL}/notifications/me?unreadOnly=true&includeMessage=true`, { credentials: "include" });
+      if (seedNotifRes.ok) {
+        const seedNotifJson = await seedNotifRes.json();
+        const seedNotifs = seedNotifJson.notifications || [];
+        for (const n of seedNotifs) seenNotificationIds.add(n.id);
+      }
+    } catch (err) {
+      // ignore seed errors
+    }
+  })();
+
+  const startPolling = () => {
+    if (pollingInterval) return;
+    console.debug("Starting polling fallback for conversations/notifications");
+    pollingInterval = setInterval(async () => {
+      console.debug("Polling: fetching conversations and notifications");
+      try {
+        const convRes = await fetch(`${API_BASE_URL}/messages/conversations/me`, { credentials: "include" });
+        if (convRes.ok) {
+          const convJson = await convRes.json();
+          const conversations = convJson.conversations || [];
+          for (const conv of conversations) {
+            const otherId = conv.user?.id;
+            const last = conv.lastMessage;
+            if (!otherId || !last) continue;
+            const prev = cachedConversations.get(otherId);
+            if (!prev || prev !== last.id) {
+              broadcast("message.new", { message: last });
+              cachedConversations.set(otherId, last.id);
+            }
+          }
+        }
+
+        const notifRes = await fetch(`${API_BASE_URL}/notifications/me?unreadOnly=true&includeMessage=true`, { credentials: "include" });
+        if (notifRes.ok) {
+          const notifJson = await notifRes.json();
+          const notifications = notifJson.notifications || [];
+          for (const n of notifications) {
+            if (!seenNotificationIds.has(n.id)) {
+              seenNotificationIds.add(n.id);
+              broadcast("notification.new", { notification: n });
+            }
+          }
+        }
+      } catch (err) {
+        // ignore polling errors
+      }
+    }, 8000);
+  };
+
+  // If SSE doesn't open quickly, start polling as a fallback.
+  setTimeout(() => {
+    if (!sseOpened) startPolling();
+  }, 2000);
 }
 
 export function useRealtimeEvents(onEvent) {

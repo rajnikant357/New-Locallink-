@@ -29,8 +29,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useAuth } from "@/contexts/AuthContext";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { api } from "@/lib/api";
+import { toast } from "@/hooks/use-toast";
 import { slugifyCategoryName } from "@/lib/category-slug";
 
 const CATEGORY_ICONS = {
@@ -85,6 +86,52 @@ const Home = () => {
     };
   }, []);
 
+  // Live public stats (providers, bookings, average rating)
+  const [stats, setStats] = useState({ providersCount: 0, bookingsCount: 0, averageRating: 0 });
+  const [loadingPlan, setLoadingPlan] = useState(null);
+
+  function useAnimatedNumber(target, duration = 800) {
+    const [value, setValue] = useState(0);
+    const rafRef = useRef(null);
+
+    useEffect(() => {
+      if (typeof target !== "number") return;
+      const start = performance.now();
+      const from = value;
+      const diff = target - from;
+
+      function step(now) {
+        const t = Math.min(1, (now - start) / duration);
+        setValue(Math.round(from + diff * t));
+        if (t < 1) rafRef.current = requestAnimationFrame(step);
+      }
+
+      rafRef.current = requestAnimationFrame(step);
+      return () => cancelAnimationFrame(rafRef.current);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [target]);
+
+    return value;
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/v1/stats")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data && data.stats) setStats(data.stats);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const animatedProviders = useAnimatedNumber(stats.providersCount || 0);
+  const animatedJobs = useAnimatedNumber(stats.bookingsCount || 0);
+  const displayRating = stats.averageRating ? Number(stats.averageRating).toFixed(1) : "0.0";
+
   const marqueeItems = useMemo(() => {
     const active = categories.filter((item) => item.isActive !== false);
     if (active.length > 0) return active;
@@ -109,7 +156,7 @@ const Home = () => {
       description: "Perfect for getting started",
       features: ["List your services", "Basic profile page", "Up to 10 bookings/month", "Email notifications", "Customer reviews"],
       limitations: ["No priority listing", "No analytics", "Limited support"],
-      cta: "Get Started",
+      cta: "Current Plan",
       popular: false,
     },
     {
@@ -128,7 +175,7 @@ const Home = () => {
         "Direct messaging",
       ],
       limitations: [],
-      cta: "Start Free Trial",
+      cta: "Buy subscription",
       popular: true,
     },
     {
@@ -147,10 +194,26 @@ const Home = () => {
         "Performance reports",
       ],
       limitations: [],
-      cta: "Contact Sales",
+      cta: "Buy subscription",
       popular: false,
     },
   ], []);
+
+  async function handleSubscribe(plan) {
+    try {
+      setLoadingPlan(plan.name);
+      const res = await api("/payments/subscription", { method: "POST", body: JSON.stringify({ plan: plan.name }) });
+      if (res?.checkoutUrl) {
+        window.open(res.checkoutUrl, "_blank");
+      } else {
+        toast({ title: "Subscription created", description: "Payment record created." });
+      }
+    } catch (err) {
+      toast({ title: "Payment failed", description: err?.message || "Try again", variant: "destructive" });
+    } finally {
+      setLoadingPlan(null);
+    }
+  }
   const hasProviderProfile = useMemo(
     () => (user?.id ? providers.some((provider) => provider.userId === user.id) : false),
     [providers, user?.id],
@@ -375,7 +438,7 @@ const Home = () => {
                 <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                   <Users className="h-7 w-7 md:h-8 md:w-8 text-primary" />
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold mb-2">200+ Providers</h3>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">{animatedProviders.toLocaleString()} Providers</h3>
                 <p className="text-muted-foreground text-xs md:text-sm">
                   Verified professionals ready to serve you.
                 </p>
@@ -387,7 +450,7 @@ const Home = () => {
                 <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                   <Heart className="h-7 w-7 md:h-8 md:w-8 text-primary" />
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold mb-2">5000+ Jobs</h3>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">{animatedJobs.toLocaleString()} Jobs</h3>
                 <p className="text-muted-foreground text-xs md:text-sm">
                   Completed with high customer satisfaction.
                 </p>
@@ -399,7 +462,7 @@ const Home = () => {
                 <div className="w-14 h-14 md:w-16 md:h-16 mx-auto mb-3 md:mb-4 bg-primary/10 rounded-full flex items-center justify-center">
                   <TrendingUp className="h-7 w-7 md:h-8 md:w-8 text-primary" />
                 </div>
-                <h3 className="text-lg md:text-xl font-semibold mb-2">4.7 Rating</h3>
+                <h3 className="text-lg md:text-xl font-semibold mb-2">{displayRating} Rating</h3>
                 <p className="text-muted-foreground text-xs md:text-sm">
                   Average satisfaction across completed jobs.
                 </p>
@@ -408,13 +471,15 @@ const Home = () => {
           </div>
         </div>
       </section>
+        <div className="container mx-auto px-3 md:px-4">
+         <div className="h-px bg-border" /></div>
  <section className="py-10 md:py-16 bg-background">
         <div className="container mx-auto px-3 md:px-4">
           <div className="max-w-3xl mx-auto text-center mb-8 md:mb-12">
             <h2 className="text-2xl md:text-3xl font-bold mb-4 md:mb-6">Our Story</h2>
             <div className="space-y-3 md:space-y-4 text-muted-foreground text-sm md:text-base leading-relaxed">
               <p>
-                LocalLink started in 2023 in Sikandarpur, Ballia, when our founder struggled to find a reliable electrician.
+                LocalLink started in 2025 in Sikandarpur, Ballia, when our founder struggled to find a reliable electrician.
                 After hours of searching and countless calls, it was clear there needed to be a better way to connect with local service providers.
               </p>
               <p>
@@ -474,6 +539,8 @@ const Home = () => {
           </div>
         </div>
       </section>
+       <div className="container mx-auto px-3 md:px-4">
+         <div className="h-px bg-border" /></div>
 
       <section className="py-10 md:py-16 bg-background">
         <div className="container mx-auto px-3 md:px-4">
@@ -498,9 +565,15 @@ const Home = () => {
                     <span className="text-3xl md:text-4xl font-bold">{plan.price}</span>
                     <span className="text-muted-foreground text-sm md:text-base">/{plan.period}</span>
                   </div>
-                  <Button className="w-full mb-4 md:mb-6 h-9 md:h-10 text-sm md:text-base" variant={plan.popular ? "default" : "outline"}>
-                    {plan.cta}
-                  </Button>
+                  {plan.price === "₹0" || plan.name === "Free" ? (
+                    <Button as="div" variant="outline" className="w-full mb-4 md:mb-6 h-9 md:h-10 text-sm md:text-base flex items-center justify-center font-medium">
+                      {plan.cta}
+                    </Button>
+                  ) : (
+                    <Button onClick={() => handleSubscribe(plan)} className="w-full mb-4 md:mb-6 h-9 md:h-10 text-sm md:text-base" variant={plan.popular ? "default" : "outline"} disabled={loadingPlan !== null}>
+                      {loadingPlan === plan.name ? "Processing..." : plan.cta}
+                    </Button>
+                  )}
                   <div className="space-y-2 md:space-y-3">
                     {plan.features.map((feature) => (
                       <div key={feature} className="flex items-start gap-2">
@@ -521,6 +594,8 @@ const Home = () => {
           </div>
         </div>
       </section>
+       <div className="container mx-auto px-3 md:px-4">
+         <div className="h-px bg-border" /></div>
 
       <section className="py-10 md:py-16 bg-muted/30">
         <div className="container mx-auto px-3 md:px-4">
@@ -570,13 +645,12 @@ const Home = () => {
             <h2 className="text-2xl md:text-3xl font-bold mb-3 md:mb-4">Are You a Service Provider?</h2>
             <p className="text-sm md:text-lg mb-4 md:mb-6 opacity-90 max-w-2xl mx-auto">Join LocalLink to find more clients, manage your schedule, and grow your business</p>
             <div className="flex flex-col sm:flex-row gap-3 md:gap-4 justify-center">
-              <Link to="/learn-more"><Button variant="secondary" size="lg" className="w-full sm:w-auto">Learn More</Button></Link>
+              <Link to="/learn-more"><Button variant="secondary" size="lg" className="bg-white w-full sm:w-auto">Learn More</Button></Link>
               <Link to="/register-provider"><Button size="lg" className="bg-white w-full sm:w-auto" variant="secondary">Register Now</Button></Link>
             </div>
           </div>
         </section>
       )}
-
       <Footer />
     </div>
   );

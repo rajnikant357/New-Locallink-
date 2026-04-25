@@ -82,7 +82,7 @@ const Categories = () => {
             </div>
 
             <div className="w-full md:w-[320px]">
-              <div className="flex items-center rounded-lg border bg-white px-3">
+              <div className="flex items-center rounded-lg border bg-white px-3 dark:bg-neutral-900">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
                   value={searchQuery}

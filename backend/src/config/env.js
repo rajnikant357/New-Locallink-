@@ -43,12 +43,21 @@ function resolvePgSslMode(raw) {
   return normalized;
 }
 
-function resolvePgSslConfig(pgSslMode) {
+function isNeonPoolerHost(hostname) {
+  return /(^|\.)pooler\./i.test(hostname) || /-pooler\./i.test(hostname);
+}
+
+function resolvePgSslConfig(pgSslMode, { hostName, explicitRejectUnauthorized } = {}) {
   if (!pgSslMode || pgSslMode === "disable") {
     return false;
   }
 
-  const explicitRejectUnauthorized = process.env.PGSSL_REJECT_UNAUTHORIZED;
+  if (hostName && isNeonPoolerHost(hostName)) {
+    return {
+      rejectUnauthorized: false,
+    };
+  }
+
   if (explicitRejectUnauthorized !== undefined && explicitRejectUnauthorized !== "") {
     return {
       rejectUnauthorized: parseBoolean(explicitRejectUnauthorized, "PGSSL_REJECT_UNAUTHORIZED"),
@@ -79,6 +88,29 @@ const pgSslMode = resolvePgSslMode(
     "",
 );
 
+const normalizedPgSslMode = (() => {
+  if (!pgSslMode || !parsedDbUrl) return pgSslMode;
+  if (pgSslMode === "verify-full" && isNeonPoolerHost(parsedDbUrl.hostname)) {
+    return "require";
+  }
+  return pgSslMode;
+})();
+
+function buildPgConnectionString(rawUrl) {
+  if (!rawUrl) return undefined;
+
+  const url = parseDatabaseUrl(rawUrl);
+  if (!url) return undefined;
+
+  // pg parses some query parameters itself and may not preserve our explicit
+  // ssl configuration consistently. Strip those params and let pgSslMode drive TLS.
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("pgsslmode");
+  url.searchParams.delete("channel_binding");
+
+  return url.toString();
+}
+
 const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || 4000),
@@ -95,14 +127,17 @@ const env = {
   authRateLimitWindowMs: Number(process.env.AUTH_RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
   authRateLimitMax: Number(process.env.AUTH_RATE_LIMIT_MAX || 20),
   adminBootstrapKey: process.env.ADMIN_BOOTSTRAP_KEY || "",
-  pgConnectionString: parsedDbUrl ? databaseUrl : undefined,
+  pgConnectionString: parsedDbUrl ? buildPgConnectionString(databaseUrl) : undefined,
   pgHost: parsedDbUrl?.hostname || process.env.PGHOST || "localhost",
   pgPort: Number(parsedDbUrl?.port || process.env.PGPORT || 5432),
   pgDatabase: (parsedDbUrl?.pathname || process.env.PGDATABASE || "locallink").replace(/^\//, ""),
   pgUser: parsedDbUrl?.username || process.env.PGUSER || "",
   pgPassword: parsedDbUrl?.password || process.env.PGPASSWORD || "",
-  pgSslMode,
-  pgSsl: resolvePgSslConfig(pgSslMode),
+  pgSslMode: normalizedPgSslMode,
+  pgSsl: resolvePgSslConfig(normalizedPgSslMode, {
+    hostName: parsedDbUrl?.hostname || process.env.PGHOST || "",
+    explicitRejectUnauthorized: process.env.PGSSL_REJECT_UNAUTHORIZED,
+  }),
 };
 
 env.isProd = env.nodeEnv === "production";

@@ -32,20 +32,18 @@ const HurryModeToggle = ({ onToggle }) => {
   };
 
   return (
-    <Card className={`border-2 transition-all ${enabled ? 'border-orange-500 bg-orange-50 dark:bg-orange-950/20' : ''}`}>
+    <Card className={`border-2 transition-all ${enabled ? "border-orange-500 bg-orange-50 dark:bg-orange-950/20" : ""}`}>
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
-            <div className={`p-2 rounded-full ${enabled ? 'bg-orange-500' : 'bg-muted'}`}>
-              <Zap className={`h-5 w-5 ${enabled ? 'text-white' : 'text-muted-foreground'}`} />
+            <div className={`p-2 rounded-full ${enabled ? "bg-orange-500" : "bg-muted"}`}>
+              <Zap className={`h-5 w-5 ${enabled ? "text-white" : "text-muted-foreground"}`} />
             </div>
             <div>
               <Label htmlFor="hurry-mode" className="text-lg font-semibold cursor-pointer">
-                ⚡ Hurry Mode - Quick Connect
+                Hurry Mode - Quick Connect
               </Label>
-              <p className="text-sm text-muted-foreground">
-                Instantly broadcast to nearby providers
-              </p>
+              <p className="text-sm text-muted-foreground">Instantly broadcast to nearby providers</p>
             </div>
           </div>
           <Switch
@@ -77,7 +75,7 @@ const HurryModeToggle = ({ onToggle }) => {
               </Label>
               <Input
                 id="budget"
-                placeholder="e.g., ₹500-₹1000"
+                placeholder="e.g., Rs 500-1000"
                 value={details.budget}
                 onChange={(e) => handleDetailsChange("budget", e.target.value)}
                 className="mt-1"

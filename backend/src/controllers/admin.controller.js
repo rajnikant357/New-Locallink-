@@ -29,6 +29,7 @@ const {
   deleteMessage: removeMessage,
   createNotification,
   getCategoryByName,
+  listContactMessages,
   updateContactMessage,
   getContactMessageById,
   deleteContactMessage,
@@ -252,7 +253,7 @@ async function adminBookings(req, res) {
 }
 
 async function adminMessages(req, res) {
-  const messages = await listAllMessages();
+  const [messages, contactMessages] = await Promise.all([listAllMessages(), listContactMessages()]);
   const userIds = Array.from(
     new Set(messages.flatMap((message) => [message.fromUserId, message.toUserId]).filter(Boolean)),
   );
@@ -265,7 +266,7 @@ async function adminMessages(req, res) {
     toUser: usersById.get(message.toUserId)?.name || null,
   }));
 
-  return res.json({ messages: enriched });
+  return res.json({ messages: enriched, contactMessages });
 }
 
 async function adminUpdateUser(req, res) {

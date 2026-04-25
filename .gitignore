@@ -1,14 +1,12 @@
-# Root ignores
-
-# Frontend
 /frontend/node_modules
 /frontend/dist
 
-# Backend
 /backend/node_modules
 /backend/.env
 
-# OS / editor
+/frontend/.env
+/frontend/.env.*
+
 .DS_Store
 Thumbs.db
 .vscode

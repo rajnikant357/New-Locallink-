@@ -12,12 +12,12 @@ import { toast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 
-const HurryModeDemo = () => {
+const HurryMode = () => {
   const [form, setForm] = useState({
-    service: "Electrician",
-    location: "Near me",
-    budgetMin: "500",
-    budgetMax: "1000",
+    service: "",
+    location: "",
+    budgetMin: "",
+    budgetMax: "",
     notes: "",
     durationSeconds: 30,
   });
@@ -119,7 +119,7 @@ const HurryModeDemo = () => {
               Hurry Mode
             </h1>
             <p className="text-muted-foreground">
-              Send an urgent service request and let nearby providers race to accept.
+              Send an urgent service request and let nearby providers respond in real time.
             </p>
           </div>
 
@@ -131,11 +131,21 @@ const HurryModeDemo = () => {
               <form className="grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={submit}>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Service</label>
-                  <Input value={form.service} onChange={(e) => setForm({ ...form, service: e.target.value })} required />
+                  <Input
+                    value={form.service}
+                    onChange={(e) => setForm({ ...form, service: e.target.value })}
+                    placeholder="e.g. Electrician, Plumber, Carpenter"
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Location</label>
-                  <Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} required />
+                  <Input
+                    value={form.location}
+                    onChange={(e) => setForm({ ...form, location: e.target.value })}
+                    placeholder="City, neighbourhood or 'Near me'"
+                    required
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Budget Min (optional)</label>
@@ -143,6 +153,7 @@ const HurryModeDemo = () => {
                     type="number"
                     value={form.budgetMin}
                     onChange={(e) => setForm({ ...form, budgetMin: e.target.value })}
+                    placeholder="e.g. 500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -151,17 +162,24 @@ const HurryModeDemo = () => {
                     type="number"
                     value={form.budgetMax}
                     onChange={(e) => setForm({ ...form, budgetMax: e.target.value })}
+                    placeholder="e.g. 1000"
                   />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Duration (seconds)</label>
-                  <Input
-                    type="number"
-                    min={10}
-                    max={180}
+                <div className="space-y-2 ">
+                  <label className="text-sm font-medium ">Duration</label>
+                  <select
+                    className="w-full border rounded-md px-3 py-2 dark:bg-neutral-900"
                     value={form.durationSeconds}
-                    onChange={(e) => setForm({ ...form, durationSeconds: e.target.value })}
-                  />
+                    onChange={(e) => setForm({ ...form, durationSeconds: Number(e.target.value) })}
+                  >
+                    <option value={15}>15 seconds</option>
+                    <option value={30}>30 seconds</option>
+                    <option value={45}>45 seconds</option>
+                    <option value={60}>60 seconds</option>
+                    <option value={90}>90 seconds</option>
+                    <option value={120}>120 seconds</option>
+                    <option value={180}>180 seconds</option>
+                  </select>
                 </div>
                 <div className="space-y-2 md:col-span-2">
                   <label className="text-sm font-medium">Notes (optional)</label>
@@ -213,7 +231,28 @@ const HurryModeDemo = () => {
                           <span>{response.provider?.location || ""}</span>
                         </div>
                       </div>
-                      <Badge variant="outline">Accepted</Badge>
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline">Accepted</Badge>
+                        {(() => {
+                          const phone = response.provider?.phone || response.provider?.user?.phone;
+                          if (phone) {
+                            return (
+                              <Button as="a" href={`tel:${phone}`} variant="ghost" size="sm">
+                                Call
+                              </Button>
+                            );
+                          }
+                          // fallback: open chat with provider's userId if available
+                          if (response.provider?.userId) {
+                            return (
+                              <Button onClick={() => window.location.assign(`/messages?with=${response.provider.userId}`)} variant="ghost" size="sm">
+                                Message
+                              </Button>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </div>
                   ))
                 )}
@@ -238,4 +277,4 @@ const HurryModeDemo = () => {
   );
 };
 
-export default HurryModeDemo;
+export default HurryMode;

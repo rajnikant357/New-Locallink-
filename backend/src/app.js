@@ -7,6 +7,7 @@ const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
 
 const { env } = require("./config/env");
+const { isPostgresReady } = require("./db/postgres");
 const apiRoutes = require("./routes");
 const { notFound } = require("./middlewares/not-found");
 const { errorHandler } = require("./middlewares/error-handler");
@@ -41,6 +42,20 @@ app.use(express.json({ limit: "1mb" }));
 app.use(cookieParser());
 app.use(morgan(env.isProd ? "combined" : "dev"));
 
+app.use("/api/v1", (req, res, next) => {
+  if (req.path === "/health") {
+    return next();
+  }
+
+  if (!isPostgresReady()) {
+    return res.status(503).json({
+      message: "Database is still starting. Please retry in a moment.",
+    });
+  }
+
+  return next();
+});
+
 const globalLimiter = rateLimit({
   windowMs: env.rateLimitWindowMs,
   max: env.rateLimitMax,
@@ -49,7 +64,13 @@ const globalLimiter = rateLimit({
   message: { message: "Too many requests. Please try again later." },
 });
 
-app.use(globalLimiter);
+// Apply global rate limiter only in production to avoid developer pain.
+if (env.isProd) {
+  app.use(globalLimiter);
+} else {
+  // eslint-disable-next-line no-console
+  console.log("Skipping global rate limiter in non-production environment");
+}
 app.use("/api/v1", apiRoutes);
 
 app.use(notFound);

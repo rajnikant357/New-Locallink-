@@ -52,6 +52,16 @@ How LocalLink can change gig workers’ lives
 Notes on deployment & next steps
 - Quick dev setup: run the backend (see `backend/.env.example`) and the frontend dev server (Vite). For production, host the backend on a reliable Node host and use managed Postgres or a well-maintained self-hosted instance.
 
+Production checklist
+- Do NOT commit secrets. Remove any existing secret values from example files and rotate exposed credentials.
+- Provide these env vars in your production environment: `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `DATABASE_URL` (or `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`/`PGPORT`), `FRONTEND_URL`, `CORS_ORIGINS`, and `VITE_API_BASE_URL` (for frontend).
+- Ensure `ACCESS_TOKEN_SECRET` and `REFRESH_TOKEN_SECRET` are strong random values (>=32 chars) and different from one another.
+- Configure CORS and cookie settings for cross-origin deployments: backend sets `credentials: true` and uses `sameSite:none` + `secure` cookies in production — your `CORS_ORIGINS` must include your frontend origin.
+- Update frontend build config: set `VITE_API_BASE_URL` to your backend API base (for example `https://api.example.com/api/v1`) and set Vite `base` when hosting on GitHub Pages or another subpath.
+- Remove or disable dev-only proxies (see `frontend/vite.config.js` `server.proxy`) in production builds.
+
+Follow `backend/README.md` for backend-specific env guidance.
+
 
 # LocalLink Monorepo
 

@@ -88,12 +88,12 @@ const SITE_SEARCH_ENTRIES = [
     keywords: ["register provider", "provider profile", "skills", "pricing", "location"],
   },
   {
-    id: "hurry-mode-demo",
-    title: "Hurry Mode Demo",
-    description: "Understand urgent job broadcast flows and fast provider response handling.",
-    route: "/hurry-mode-demo",
+    id: "hurry-mode",
+    title: "Hurry Mode",
+    description: "Create urgent job broadcasts and watch providers respond in real time.",
+    route: "/hurry",
     type: "Feature",
-    keywords: ["hurry mode", "urgent job", "nearby providers", "instant response"],
+    keywords: ["hurry mode", "urgent job", "nearby providers", "instant response", "real time"],
   },
   {
     id: "privacy",

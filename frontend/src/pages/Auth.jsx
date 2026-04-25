@@ -63,13 +63,22 @@ const Auth = () => {
     setResetInFlight(true);
     const { error, data } = await requestPasswordReset(email);
     if (!error) {
-      toast({
-        title: "Check your email",
-        description:
-          data?.resetUrl
-            ? `Dev link: ${data.resetUrl}`
-            : "If the account exists, you'll receive a reset link.",
-      });
+      // In development the API returns `resetToken` and `resetUrl` so make it easy to use
+      if (data?.resetToken) {
+        try {
+          await navigator.clipboard.writeText(data.resetToken);
+          toast({ title: "Dev token copied", description: "Reset token copied to clipboard. Redirecting to reset page..." });
+        } catch {
+          toast({ title: "Dev token available", description: "Open reset page and paste the token from the dev toast." });
+        }
+        // Redirect to reset page with token prefilled
+        navigate(`/reset-password?token=${encodeURIComponent(data.resetToken)}`);
+      } else {
+        toast({
+          title: "Check your email",
+          description: "If the account exists, you'll receive a reset link.",
+        });
+      }
     } else {
       toast({
         title: "Could not start reset",
