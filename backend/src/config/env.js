@@ -110,7 +110,9 @@ const env = {
   nodeEnv: process.env.NODE_ENV || "development",
   port: Number(process.env.PORT || 4000),
   accessTokenSecret: required("ACCESS_TOKEN_SECRET", "dev_access_secret_change_me_12345678901234567890"),
-  refreshTokenSecret: required("REFRESH_TOKEN_SECRET", "dev_refresh_secret_change_me_1234567890123456789"),
+  // Refresh token secret is optional when using server-backed opaque sessions.
+  // Keep an empty string when not provided to preserve backward compatibility.
+  refreshTokenSecret: process.env.REFRESH_TOKEN_SECRET || "",
   accessTokenExpiresIn: process.env.ACCESS_TOKEN_EXPIRES_IN || "15m",
   refreshTokenExpiresIn: process.env.REFRESH_TOKEN_EXPIRES_IN || "7d",
   corsOrigins: (process.env.CORS_ORIGINS || "http://localhost:8080,http://localhost:5173")
@@ -138,18 +140,19 @@ const env = {
 env.isProd = env.nodeEnv === "production";
 
 assertSecretStrength("ACCESS_TOKEN_SECRET", env.accessTokenSecret);
-assertSecretStrength("REFRESH_TOKEN_SECRET", env.refreshTokenSecret);
 
-if (env.accessTokenSecret === env.refreshTokenSecret) {
+if (env.refreshTokenSecret) {
+  assertSecretStrength("REFRESH_TOKEN_SECRET", env.refreshTokenSecret);
+}
+
+if (env.refreshTokenSecret && env.accessTokenSecret === env.refreshTokenSecret) {
   throw new Error("ACCESS_TOKEN_SECRET and REFRESH_TOKEN_SECRET must be different");
 }
 
 if (
   env.isProd &&
-  (env.accessTokenSecret.includes("change_me") ||
-    env.refreshTokenSecret.includes("change_me") ||
-    env.accessTokenSecret.startsWith("dev_") ||
-    env.refreshTokenSecret.startsWith("dev_"))
+  (env.accessTokenSecret.includes("change_me") || env.accessTokenSecret.startsWith("dev_") ||
+    (env.refreshTokenSecret && (env.refreshTokenSecret.includes("change_me") || env.refreshTokenSecret.startsWith("dev_"))))
 ) {
   throw new Error("Refusing to start in production with placeholder token secrets");
 }

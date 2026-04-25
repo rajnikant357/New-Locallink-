@@ -44,8 +44,8 @@ async function main() {
     },
     validation: {
       accessTokenSecretMinLength: env.accessTokenSecret.length >= 32,
-      refreshTokenSecretMinLength: env.refreshTokenSecret.length >= 32,
-      secretsAreDifferent: env.accessTokenSecret !== env.refreshTokenSecret,
+      refreshTokenSecretMinLength: env.refreshTokenSecret ? env.refreshTokenSecret.length >= 32 : null,
+      secretsAreDifferent: env.refreshTokenSecret ? env.accessTokenSecret !== env.refreshTokenSecret : null,
     },
   };
 

@@ -1,6 +1,9 @@
 const { pool } = require("./postgres");
 const crypto = require("crypto");
 
+// Default session TTL (ms) used when caller doesn't provide expiresAt.
+const DEFAULT_REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 function camelToSnake(key) {
   return key.replace(/([A-Z])/g, (match) => `_${match.toLowerCase()}`);
 }
@@ -240,6 +243,10 @@ async function getUserById(id) {
 // Session helpers for server-backed refresh tokens
 async function createSession({ id, userId, tokenHash, userAgent = null, ipAddress = null, expiresAt = null }) {
   const sessionId = id || crypto.randomUUID();
+  // Ensure expiresAt is always a timestamp string — if caller omitted it, compute default TTL.
+  const finalExpiresAt = expiresAt || new Date(Date.now() + DEFAULT_REFRESH_TOKEN_TTL_MS);
+  const expiresParam = finalExpiresAt instanceof Date ? finalExpiresAt.toISOString() : finalExpiresAt;
+
   const { rows } = await pool.query(
     `
     INSERT INTO user_sessions (
@@ -247,7 +254,7 @@ async function createSession({ id, userId, tokenHash, userAgent = null, ipAddres
     ) VALUES ($1,$2,$3,$4,$5,$6)
     RETURNING *
   `,
-    [sessionId, userId, tokenHash, userAgent, ipAddress, expiresAt],
+    [sessionId, userId, tokenHash, userAgent, ipAddress, expiresParam],
   );
   return mapSessionRow(rows[0]);
 }
@@ -261,9 +268,13 @@ async function getSessionByHash(tokenHash) {
 }
 
 async function rotateSession(sessionId, newTokenHash, newExpiresAt) {
+  // If caller didn't provide a newExpiresAt, extend by default TTL from now.
+  const finalExpiresAt = newExpiresAt || new Date(Date.now() + DEFAULT_REFRESH_TOKEN_TTL_MS);
+  const expiresParam = finalExpiresAt instanceof Date ? finalExpiresAt.toISOString() : finalExpiresAt;
+
   const { rows } = await pool.query(
     `UPDATE user_sessions SET token_hash = $1, expires_at = $2, created_at = NOW() WHERE id = $3 RETURNING *`,
-    [newTokenHash, newExpiresAt, sessionId],
+    [newTokenHash, expiresParam, sessionId],
   );
   return mapSessionRow(rows[0]);
 }
