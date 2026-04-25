@@ -1,4 +1,5 @@
 const { pool } = require("./postgres");
+const crypto = require("crypto");
 
 function camelToSnake(key) {
   return key.replace(/([A-Z])/g, (match) => `_${match.toLowerCase()}`);
@@ -55,6 +56,20 @@ function mapUserRow(row) {
     ...extra,
     createdAt: normalizeTimestamp(row.created_at),
     updatedAt: normalizeTimestamp(row.updated_at),
+  };
+}
+
+function mapSessionRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    tokenHash: row.token_hash,
+    userAgent: row.user_agent,
+    ipAddress: row.ip_address,
+    createdAt: normalizeTimestamp(row.created_at),
+    expiresAt: normalizeTimestamp(row.expires_at),
+    revoked: row.revoked,
   };
 }
 
@@ -220,6 +235,49 @@ async function getUserById(id) {
     [id],
   );
   return mapUserRow(rows[0]);
+}
+
+// Session helpers for server-backed refresh tokens
+async function createSession({ id, userId, tokenHash, userAgent = null, ipAddress = null, expiresAt = null }) {
+  const sessionId = id || crypto.randomUUID();
+  const { rows } = await pool.query(
+    `
+    INSERT INTO user_sessions (
+      id, user_id, token_hash, user_agent, ip_address, expires_at
+    ) VALUES ($1,$2,$3,$4,$5,$6)
+    RETURNING *
+  `,
+    [sessionId, userId, tokenHash, userAgent, ipAddress, expiresAt],
+  );
+  return mapSessionRow(rows[0]);
+}
+
+async function getSessionByHash(tokenHash) {
+  const { rows } = await pool.query(
+    `SELECT * FROM user_sessions WHERE token_hash = $1 LIMIT 1`,
+    [tokenHash],
+  );
+  return mapSessionRow(rows[0]);
+}
+
+async function rotateSession(sessionId, newTokenHash, newExpiresAt) {
+  const { rows } = await pool.query(
+    `UPDATE user_sessions SET token_hash = $1, expires_at = $2, created_at = NOW() WHERE id = $3 RETURNING *`,
+    [newTokenHash, newExpiresAt, sessionId],
+  );
+  return mapSessionRow(rows[0]);
+}
+
+async function revokeSessionByHash(tokenHash) {
+  const { rows } = await pool.query(
+    `UPDATE user_sessions SET revoked = true WHERE token_hash = $1 RETURNING *`,
+    [tokenHash],
+  );
+  return mapSessionRow(rows[0]);
+}
+
+async function pruneExpiredSessions() {
+  await pool.query(`DELETE FROM user_sessions WHERE expires_at IS NOT NULL AND expires_at < NOW()`);
 }
 
 async function getUserByRefreshTokenHash(hash) {
@@ -1102,6 +1160,12 @@ module.exports = {
   listActiveHurryRequests,
   listHurryResponses,
   addHurryResponse,
+  // session helpers
+  createSession,
+  getSessionByHash,
+  rotateSession,
+  revokeSessionByHash,
+  pruneExpiredSessions,
   createPayment,
   getPaymentById,
   updatePaymentStatus,

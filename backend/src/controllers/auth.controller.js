@@ -2,12 +2,7 @@ const crypto = require("crypto");
 const { z } = require("zod");
 const { hashPassword, verifyPassword } = require("../utils/password");
 const { toSafeUser } = require("../utils/safe-user");
-const {
-  signAccessToken,
-  signRefreshToken,
-  verifyRefreshToken,
-  hashToken,
-} = require("../utils/tokens");
+const { signAccessToken, hashToken } = require("../utils/tokens");
 const { env } = require("../config/env");
 const { registerBodySchema } = require("../schemas/account.schemas");
 const {
@@ -15,10 +10,13 @@ const {
   getUserByEmail,
   getUserById,
   updateUser,
-  getUserByRefreshTokenHash,
   getUserByResetTokenHash,
   setResetTokenForUser,
   clearResetTokenForUser,
+  createSession,
+  getSessionByHash,
+  rotateSession,
+  revokeSessionByHash,
 } = require("../db/repository");
 
 const registerSchema = z.object({
@@ -86,14 +84,7 @@ function clearRefreshCookie(res) {
   });
 }
 
-const MAX_REFRESH_TOKENS = 5;
-
-function mergeRefreshHashes(existing = [], newHash) {
-  const arr = Array.isArray(existing) ? existing.slice() : [];
-  arr.push(newHash);
-  // keep the most recent MAX_REFRESH_TOKENS
-  return arr.slice(-MAX_REFRESH_TOKENS);
-}
+const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function setAccessCookie(res, token) {
   res.cookie("ll_access", token, {
@@ -143,19 +134,20 @@ async function register(req, res) {
   });
 
   const accessToken = signAccessToken(createdUser);
-  const refreshToken = signRefreshToken(createdUser);
-  const refreshHash = hashToken(refreshToken);
 
-  const newHashes = mergeRefreshHashes(createdUser.refreshTokenHashes, refreshHash);
-  const updatedUser = await updateUser(createdUser.id, { refreshTokenHashes: newHashes });
+  // create server-backed session (opaque refresh token)
+  const rawRefreshToken = crypto.randomBytes(48).toString("hex");
+  const refreshHash = hashToken(rawRefreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  await createSession({ userId: createdUser.id, tokenHash: refreshHash, userAgent: req.get("user-agent"), ipAddress: req.ip, expiresAt });
 
-  setRefreshCookie(res, refreshToken);
+  // set cookies
+  setRefreshCookie(res, rawRefreshToken);
   setAccessCookie(res, accessToken);
 
-  return res.status(201).json({
-    user: toSafeUser(updatedUser),
-    accessToken,
-  });
+  const updatedUser = await getUserById(createdUser.id);
+
+  return res.status(201).json({ user: toSafeUser(updatedUser), accessToken });
 }
 
 async function login(req, res) {
@@ -172,19 +164,25 @@ async function login(req, res) {
   }
 
   const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
-  const refreshHash = hashToken(refreshToken);
 
-  const newHashes = mergeRefreshHashes(user.refreshTokenHashes, refreshHash);
-  const updatedUser = await updateUser(user.id, { refreshTokenHashes: newHashes });
+  // create server-backed session
+  const rawRefreshToken = crypto.randomBytes(48).toString("hex");
+  const refreshHash = hashToken(rawRefreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  await createSession({ userId: user.id, tokenHash: refreshHash, userAgent: req.get("user-agent"), ipAddress: req.ip, expiresAt });
 
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, rawRefreshToken);
   setAccessCookie(res, accessToken);
 
-  return res.json({
-    user: toSafeUser(updatedUser),
-    accessToken,
-  });
+  const updatedUser = await getUserById(user.id);
+
+  // debug: log that we set cookies (truncated hash) to help diagnose client cookie issues
+  try {
+    // eslint-disable-next-line no-console
+    console.info(`[auth] login: set refresh hash prefix=${refreshHash.slice(0, 8)}`);
+  } catch (err) {}
+
+  return res.json({ user: toSafeUser(updatedUser), accessToken });
 }
 
 async function forgotPassword(req, res) {
@@ -230,20 +228,19 @@ async function resetPassword(req, res) {
 
   const passwordHash = await hashPassword(password);
   const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
-  const refreshHash = hashToken(refreshToken);
 
-  const newHashes = mergeRefreshHashes(user.refreshTokenHashes, refreshHash);
-  const updatedUser = await updateUser(user.id, { passwordHash, refreshTokenHashes: newHashes });
+  const rawRefreshToken = crypto.randomBytes(48).toString("hex");
+  const refreshHash = hashToken(rawRefreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  await createSession({ userId: user.id, tokenHash: refreshHash, userAgent: req.get("user-agent"), ipAddress: req.ip, expiresAt });
+
+  const updatedUser = await updateUser(user.id, { passwordHash });
   await clearResetTokenForUser(user.id);
 
-  setRefreshCookie(res, refreshToken);
+  setRefreshCookie(res, rawRefreshToken);
   setAccessCookie(res, accessToken);
 
-  return res.json({
-    user: toSafeUser(updatedUser),
-    accessToken,
-  });
+  return res.json({ user: toSafeUser(updatedUser), accessToken });
 }
 
 async function socialLogin(req, res) {
@@ -274,19 +271,18 @@ async function socialLogin(req, res) {
   }
 
   const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
-  const refreshHash = hashToken(refreshToken);
-  const newHashes = mergeRefreshHashes(user.refreshTokenHashes, refreshHash);
-  const updatedUser = await updateUser(user.id, { refreshTokenHashes: newHashes });
 
-  setRefreshCookie(res, refreshToken);
+  const rawRefreshToken = crypto.randomBytes(48).toString("hex");
+  const refreshHash = hashToken(rawRefreshToken);
+  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  await createSession({ userId: user.id, tokenHash: refreshHash, userAgent: req.get("user-agent"), ipAddress: req.ip, expiresAt });
+
+  setRefreshCookie(res, rawRefreshToken);
   setAccessCookie(res, accessToken);
 
-  return res.json({
-    user: toSafeUser(updatedUser),
-    accessToken,
-    provider,
-  });
+  const updatedUser = await getUserById(user.id);
+
+  return res.json({ user: toSafeUser(updatedUser), accessToken, provider });
 }
 
 async function me(req, res) {
@@ -300,36 +296,40 @@ async function me(req, res) {
 }
 
 async function refresh(req, res) {
-  const refreshToken = req.cookies?.ll_refresh;
-  if (!refreshToken) {
+  const raw = req.cookies?.ll_refresh;
+  if (!raw) {
     return res.status(401).json({ message: "Refresh token missing" });
   }
 
   try {
-    const payload = verifyRefreshToken(refreshToken);
-    const refreshHash = hashToken(refreshToken);
-    const user = await getUserById(payload.sub);
-
-    if (!user || !Array.isArray(user.refreshTokenHashes) || !user.refreshTokenHashes.includes(refreshHash)) {
-      return res.status(401).json({ message: "Invalid refresh token" });
+    const tokenHash = hashToken(raw);
+    const session = await getSessionByHash(tokenHash);
+    if (!session || session.revoked || (session.expiresAt && new Date(session.expiresAt) < new Date())) {
+      // eslint-disable-next-line no-console
+      console.info('[auth] refresh: session invalid or expired');
+      return res.status(401).json({ message: 'Invalid refresh token' });
     }
 
+    const user = await getUserById(session.userId);
+    if (!user) return res.status(401).json({ message: 'Invalid refresh token' });
+
     const newAccessToken = signAccessToken(user);
-    const newRefreshToken = signRefreshToken(user);
-    const newRefreshHash = hashToken(newRefreshToken);
 
-    const newHashes = mergeRefreshHashes(user.refreshTokenHashes, newRefreshHash);
-    const refreshedUser = await updateUser(user.id, { refreshTokenHashes: newHashes });
+    // rotate session token
+    const newRaw = crypto.randomBytes(48).toString('hex');
+    const newHash = hashToken(newRaw);
+    const newExpires = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+    await rotateSession(session.id, newHash, newExpires);
 
-    setRefreshCookie(res, newRefreshToken);
+    setRefreshCookie(res, newRaw);
     setAccessCookie(res, newAccessToken);
 
-    return res.json({
-      user: toSafeUser(refreshedUser),
-      accessToken: newAccessToken,
-    });
-  } catch {
-    return res.status(401).json({ message: "Invalid or expired refresh token" });
+    const refreshedUser = await getUserById(user.id);
+    return res.json({ user: toSafeUser(refreshedUser), accessToken: newAccessToken });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.info('[auth] refresh: error', err?.message || err);
+    return res.status(401).json({ message: 'Invalid or expired refresh token' });
   }
 }
 
@@ -338,11 +338,7 @@ async function logout(req, res) {
 
   if (refreshToken) {
     const refreshHash = hashToken(refreshToken);
-    const user = await getUserByRefreshTokenHash(refreshHash);
-    if (user) {
-      const updatedHashes = (user.refreshTokenHashes || []).filter((hash) => hash !== refreshHash);
-      await updateUser(user.id, { refreshTokenHashes: updatedHashes });
-    }
+    await revokeSessionByHash(refreshHash);
   }
 
   clearRefreshCookie(res);

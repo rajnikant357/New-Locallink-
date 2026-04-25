@@ -314,6 +314,28 @@ async function ensurePostgres() {
     WHERE is_read = FALSE AND read_at IS NOT NULL
   `);
 
+  // Sessions table for server-backed refresh tokens
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL,
+      user_agent TEXT,
+      ip_address TEXT,
+      created_at TIMESTAMPTZ DEFAULT NOW(),
+      expires_at TIMESTAMPTZ,
+      revoked BOOLEAN DEFAULT FALSE
+    )
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_userid ON user_sessions(user_id)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_tokenhash ON user_sessions(token_hash)
+  `);
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS app_contact_messages (
       id TEXT PRIMARY KEY,
