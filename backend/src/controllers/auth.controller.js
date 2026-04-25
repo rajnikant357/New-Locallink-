@@ -231,8 +231,8 @@ async function resetPassword(req, res) {
 
   const rawRefreshToken = crypto.randomBytes(48).toString("hex");
   const refreshHash = hashToken(rawRefreshToken);
-  const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
-  await createSession({ userId: user.id, tokenHash: refreshHash, userAgent: req.get("user-agent"), ipAddress: req.ip, expiresAt });
+  const sessionExpiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
+  await createSession({ userId: user.id, tokenHash: refreshHash, userAgent: req.get("user-agent"), ipAddress: req.ip, expiresAt: sessionExpiresAt });
 
   const updatedUser = await updateUser(user.id, { passwordHash });
   await clearResetTokenForUser(user.id);
