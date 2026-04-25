@@ -1,5 +1,4 @@
-# LocalLink is a lightweight, privacy-first marketplace platform and toolkit that helps local gig workers connect with customers, manage bookings, and get paid — without the overhead of large platforms. It combines a fast React + Vite frontend with an Express + PostgreSQL backend, and ships a focused set of features (search, provider profiles, bookings, messaging, notifications, preferences, and admin tools) designed for real-world, local service discovery and coordination.
-
+# LocalLink is a modern web platform for discovering and connecting with trusted local service providers in your area.
 About this project
 - Purpose: build a practical, deployable marketplace for local services that puts control back in the hands of service providers and small businesses. LocalLink is intentionally simple to operate and easy to host, so community groups, co-ops, and small teams can run their own marketplace with transparent rules and low fees.
 - Scope: customer search and discovery, provider profiles, booking flows, messages, notifications, basic admin and preference management, and realtime support for urgent/hurry requests.
