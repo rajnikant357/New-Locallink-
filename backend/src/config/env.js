@@ -64,9 +64,6 @@ function resolvePgSslConfig(pgSslMode, { hostName, explicitRejectUnauthorized } 
     };
   }
 
-  // libpq compatibility:
-  // require/allow/prefer => TLS with cert validation relaxed unless explicitly overridden.
-  // verify-ca/verify-full => TLS with cert validation enabled.
   return {
     rejectUnauthorized: pgSslMode === "verify-ca" || pgSslMode === "verify-full",
   };
@@ -102,8 +99,6 @@ function buildPgConnectionString(rawUrl) {
   const url = parseDatabaseUrl(rawUrl);
   if (!url) return undefined;
 
-  // pg parses some query parameters itself and may not preserve our explicit
-  // ssl configuration consistently. Strip those params and let pgSslMode drive TLS.
   url.searchParams.delete("sslmode");
   url.searchParams.delete("pgsslmode");
   url.searchParams.delete("channel_binding");

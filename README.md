@@ -62,6 +62,47 @@ Production checklist
 
 Follow `backend/README.md` for backend-specific env guidance.
 
+Technology & Deployment (Vercel frontend + Render backend)
+-------------------------------------------------------
+
+This project is intended to be deployed as a static frontend (Vercel) and a persistent Node backend (Render) with Neon as the managed Postgres database. The short, practical deployment recipe below matches that setup and ensures cookies, CORS, and DB connectivity work correctly.
+
+1) Neon (Postgres)
+- Provision a Neon Postgres project and copy the *pooler* connection string (the postgres:// URL Neon provides). Use this as `DATABASE_URL` for the backend.
+
+2) Backend (Render)
+- Service type: Web Service (runs a persistent Node process). Point Render to the `backend/` folder in this repo.
+- Build command: `npm install`
+- Start command: `npm start` (server uses `src/server.js`)
+- Required environment variables (Render dashboard → Environment):
+	- `DATABASE_URL` = neon pooler URL (postgres://...)
+	- `ACCESS_TOKEN_SECRET` = strong random string (>= 32 chars)
+	- `REFRESH_TOKEN_SECRET` = different strong random string (>= 32 chars)
+	- `NODE_ENV` = `production`
+	- `CORS_ORIGINS` = comma-separated allowed frontend origins (e.g. `https://your-frontend.vercel.app`)
+	- `FRONTEND_URL` = your Vercel frontend URL (optional but helpful for email/reset links)
+	- Optional DB SSL settings: `PGSSLMODE=require` and `PGSSL_REJECT_UNAUTHORIZED=false` (Neon pooler usually works without additional flags, but these are available if needed)
+- Health check: the app exposes a health endpoint at `/api/v1/health`. Example: `https://<your-render-host>/api/v1/health`.
+
+3) Frontend (Vercel)
+- Project root: `frontend/` in this repo.
+- Build command: `npm run build` (Vite). Output directory: `dist`.
+- Environment variables (Vercel → Project → Settings → Environment Variables):
+	- `VITE_API_BASE_URL` = `https://<your-backend>/api/v1` (example: `https://new-locallink.onrender.com/api/v1`)
+	- Add any other runtime flags you rely on (example: `PUBLIC_ANALYTICS_KEY` if used).
+- Ensure your Vercel production domain is included in the backend `CORS_ORIGINS` and that cookies work cross-site (`sameSite=none` and `secure=true` are used in production in the backend).
+
+4) Verification & smoke tests
+- Health: `GET https://<your-backend>/api/v1/health` should return `{ status: "ok", databaseReady: true, databaseError: null, timestamp: "..." }` when healthy.
+- Logs: check Render logs for server start and DB bootstrap messages. Look for:
+	- `LocalLink backend listening on http://localhost:4000`
+	- `DB initialization complete`
+- Frontend: open your Vercel URL, try public pages, then try login/register flows to confirm cookies are set and subsequent requests include them.
+
+5) Security & production tips
+- Never commit secrets. Use Render/Vercel secret stores.
+- Rotate secrets if accidentally committed.
+- Use a monitoring/logging provider (Sentry, LogDNA, Render logs) and configure Neon backups.
 
 # LocalLink Monorepo
 
