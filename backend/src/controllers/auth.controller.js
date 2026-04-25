@@ -72,7 +72,7 @@ function setRefreshCookie(res, token) {
     httpOnly: true,
     secure: env.isProd,
     sameSite: env.isProd ? "none" : "lax",
-    path: "/api/v1/auth",
+    path: "/",
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 }
@@ -82,8 +82,17 @@ function clearRefreshCookie(res) {
     httpOnly: true,
     secure: env.isProd,
     sameSite: env.isProd ? "none" : "lax",
-    path: "/api/v1/auth",
+    path: "/",
   });
+}
+
+const MAX_REFRESH_TOKENS = 5;
+
+function mergeRefreshHashes(existing = [], newHash) {
+  const arr = Array.isArray(existing) ? existing.slice() : [];
+  arr.push(newHash);
+  // keep the most recent MAX_REFRESH_TOKENS
+  return arr.slice(-MAX_REFRESH_TOKENS);
 }
 
 function setAccessCookie(res, token) {
@@ -137,7 +146,8 @@ async function register(req, res) {
   const refreshToken = signRefreshToken(createdUser);
   const refreshHash = hashToken(refreshToken);
 
-  const updatedUser = await updateUser(createdUser.id, { refreshTokenHashes: [refreshHash] });
+  const newHashes = mergeRefreshHashes(createdUser.refreshTokenHashes, refreshHash);
+  const updatedUser = await updateUser(createdUser.id, { refreshTokenHashes: newHashes });
 
   setRefreshCookie(res, refreshToken);
   setAccessCookie(res, accessToken);
@@ -165,7 +175,8 @@ async function login(req, res) {
   const refreshToken = signRefreshToken(user);
   const refreshHash = hashToken(refreshToken);
 
-  const updatedUser = await updateUser(user.id, { refreshTokenHashes: [refreshHash] });
+  const newHashes = mergeRefreshHashes(user.refreshTokenHashes, refreshHash);
+  const updatedUser = await updateUser(user.id, { refreshTokenHashes: newHashes });
 
   setRefreshCookie(res, refreshToken);
   setAccessCookie(res, accessToken);
@@ -222,7 +233,8 @@ async function resetPassword(req, res) {
   const refreshToken = signRefreshToken(user);
   const refreshHash = hashToken(refreshToken);
 
-  const updatedUser = await updateUser(user.id, { passwordHash, refreshTokenHashes: [refreshHash] });
+  const newHashes = mergeRefreshHashes(user.refreshTokenHashes, refreshHash);
+  const updatedUser = await updateUser(user.id, { passwordHash, refreshTokenHashes: newHashes });
   await clearResetTokenForUser(user.id);
 
   setRefreshCookie(res, refreshToken);
@@ -264,7 +276,8 @@ async function socialLogin(req, res) {
   const accessToken = signAccessToken(user);
   const refreshToken = signRefreshToken(user);
   const refreshHash = hashToken(refreshToken);
-  const updatedUser = await updateUser(user.id, { refreshTokenHashes: [refreshHash] });
+  const newHashes = mergeRefreshHashes(user.refreshTokenHashes, refreshHash);
+  const updatedUser = await updateUser(user.id, { refreshTokenHashes: newHashes });
 
   setRefreshCookie(res, refreshToken);
   setAccessCookie(res, accessToken);
@@ -305,7 +318,8 @@ async function refresh(req, res) {
     const newRefreshToken = signRefreshToken(user);
     const newRefreshHash = hashToken(newRefreshToken);
 
-    const refreshedUser = await updateUser(user.id, { refreshTokenHashes: [newRefreshHash] });
+    const newHashes = mergeRefreshHashes(user.refreshTokenHashes, newRefreshHash);
+    const refreshedUser = await updateUser(user.id, { refreshTokenHashes: newHashes });
 
     setRefreshCookie(res, newRefreshToken);
     setAccessCookie(res, newAccessToken);
