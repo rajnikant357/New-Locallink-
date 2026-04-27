@@ -6,6 +6,7 @@ const {
   getHurryRequest,
   listHurryResponses,
   addHurryResponse,
+  listProviders,
   getProviderByUserId,
   getProviderById,
   createBooking,
@@ -64,9 +65,43 @@ async function createHurry(req, res) {
     expiresAt,
   });
 
-  // Broadcast to all active providers; in a real system we'd geo-filter.
+  // Target matching providers by (category OR skills) AND location substring
   publishToUser(req.auth.userId, "hurry.created", { request: hurry });
-  publishToAll("hurry.new", { request: hurry });
+
+  try {
+    const allProviders = await listProviders();
+
+    const normalize = (s) => (s || "").toString().toLowerCase();
+    const reqService = normalize(service);
+    const reqLocation = normalize(location);
+
+    const matchesProvider = (provider) => {
+      const pLocation = normalize(provider.location || "");
+      // location must match (substring)
+      if (!pLocation.includes(reqLocation)) return false;
+
+      const pCategory = normalize(provider.category || "");
+      const pSkills = Array.isArray(provider.skills) ? provider.skills.map(String).join(" ") : String(provider.skills || "");
+      const pSkillsNorm = normalize(pSkills);
+
+      const categoryMatch = pCategory && (pCategory === reqService || pCategory.includes(reqService) || reqService.includes(pCategory));
+      const skillsMatch = pSkillsNorm && (pSkillsNorm.includes(reqService) || reqService.split(/\s+/).some((tk) => pSkillsNorm.includes(tk)));
+
+      return (categoryMatch || skillsMatch);
+    };
+
+    const matched = allProviders.filter(matchesProvider);
+
+    // Publish only to matched providers
+    for (const provider of matched) {
+      if (provider.userId) {
+        publishToUser(provider.userId, "hurry.new", { request: hurry, provider: { id: provider.id, name: provider.name, location: provider.location, priceMin: provider.priceMin } });
+      }
+    }
+  } catch (err) {
+    // fallback: broadcast to all if matching fails
+    publishToAll("hurry.new", { request: hurry });
+  }
 
   return res.status(201).json({ hurry });
 }
@@ -133,17 +168,19 @@ async function accept(req, res) {
       status: "requested",
     });
 
-    await createNotification({
+    const notification = await createNotification({
       id: `notif_${crypto.randomUUID()}`,
       userId: hurry.customerId,
       fromUserId: provider.userId,
       bookingId: booking.id,
       title: "Provider accepted your Hurry request",
       message: `${provider.name} accepted your request for ${hurry.service}`,
+      payload: { providerName: provider.name, service: hurry.service, providerCategory: provider.category },
       type: "hurry",
     });
 
     publishToUser(hurry.customerId, "hurry.accepted", { request: matched, provider, booking });
+    publishToUser(hurry.customerId, "notification.new", { notification });
   } else {
     publishToUser(hurry.customerId, "hurry.accepted", { request: matched, provider });
   }

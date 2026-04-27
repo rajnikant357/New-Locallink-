@@ -1,11 +1,4 @@
-import ChatbotButton from "../components/ChatbotButton";
-
-const Chatbot = () => {
-  return (
-    <div className="fixed bottom-6 right-6 z-50">
-      <ChatbotButton />
-    </div>
-  );
-};
+// Chatbot route retained but UI hidden until the bot is trained/activated.
+const Chatbot = () => null;
 
 export default Chatbot;

@@ -324,7 +324,7 @@ const Providers = () => {
                         </div>
                         <div>
                           <h3 className="font-semibold text-sm md:text-base">{provider.name}</h3>
-                          <p className="text-xs md:text-sm text-muted-foreground">{provider.category}</p>
+                          <p className="text-xs md:text-sm text-muted-foreground">{provider.category}{provider.completedJobs !== undefined ? (<span className="ml-2">• {provider.completedJobs} jobs</span>) : null}</p>
                         </div>
                       </div>
                       <div className="flex items-center gap-1">

@@ -714,6 +714,14 @@ async function hasCompletedBooking(providerId, customerId) {
   return rows.length > 0;
 }
 
+async function countCompletedBookingsForProvider(providerId) {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*) AS count FROM app_bookings WHERE provider_id = $1 AND status = 'completed'`,
+    [providerId],
+  );
+  return Number(rows[0]?.count || 0);
+}
+
 async function listAllBookings() {
   const { rows } = await pool.query(`
     SELECT * FROM app_bookings ORDER BY created_at DESC
@@ -858,7 +866,32 @@ async function listNotifications(userId, { unreadOnly, includeMessage } = {}) {
   }
   query += " ORDER BY created_at DESC";
   const { rows } = await pool.query(query, params);
-  return rows.map(mapNotificationRow);
+  const notifications = rows.map(mapNotificationRow);
+
+  // Enrich notifications missing payload with booking/provider info when possible
+  await Promise.all(
+    notifications.map(async (n) => {
+      if (n && !n.payload && n.bookingId) {
+        try {
+          const booking = await getBookingById(n.bookingId);
+          if (booking && booking.providerId) {
+            const provider = await getProviderById(booking.providerId);
+            if (provider) {
+              n.payload = {
+                providerName: provider.name,
+                service: booking.service,
+                providerCategory: provider.category,
+              };
+            }
+          }
+        } catch (err) {
+          // ignore enrichment errors
+        }
+      }
+    }),
+  );
+
+  return notifications;
 }
 
 async function markNotificationRead(id, userId) {
@@ -902,6 +935,30 @@ async function markAllMessageNotificationsRead(userId) {
     `
     UPDATE app_notifications SET is_read = TRUE, read_at = NOW()
     WHERE user_id = $1 AND type = 'message' AND is_read = FALSE
+    RETURNING *
+  `,
+    [userId],
+  );
+  return rows.map(mapNotificationRow);
+}
+
+async function deleteNotification(id, userId) {
+  const { rows } = await pool.query(
+    `
+    DELETE FROM app_notifications
+    WHERE id = $1 AND user_id = $2
+    RETURNING *
+  `,
+    [id, userId],
+  );
+  return mapNotificationRow(rows[0]);
+}
+
+async function deleteAllNotifications(userId) {
+  const { rows } = await pool.query(
+    `
+    DELETE FROM app_notifications
+    WHERE user_id = $1
     RETURNING *
   `,
     [userId],
@@ -1003,8 +1060,9 @@ async function countBookings() {
 }
 
 async function getAverageProviderRating() {
+  // Compute global average rating from individual reviews to reflect real customer feedback
   const { rows } = await pool.query(
-    `SELECT AVG(rating)::numeric(3,2) AS avg_rating FROM app_providers`
+    `SELECT AVG(rating)::numeric(3,2) AS avg_rating FROM app_reviews WHERE rating IS NOT NULL`
   );
   return rows[0] && rows[0].avg_rating ? Number(rows[0].avg_rating) : 0;
 }
@@ -1123,6 +1181,7 @@ module.exports = {
   createBooking,
   listBookingsForUser,
   hasCompletedBooking,
+  countCompletedBookingsForProvider,
   listAllBookings,
   getBookingById,
   updateBookingStatus,
@@ -1141,6 +1200,8 @@ module.exports = {
   markAllNotificationsRead,
   markMessageNotificationsReadBySender,
   markAllMessageNotificationsRead,
+  deleteNotification,
+  deleteAllNotifications,
   countUnreadNotifications,
   listContactMessages,
   createContactMessage,

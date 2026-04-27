@@ -6,6 +6,8 @@ const {
   markAllNotificationsRead: markAllNotificationsAsRead,
   markMessageNotificationsReadBySender: markMessageNotificationsBySender,
   markAllMessageNotificationsRead: markAllMessageNotificationsAsRead,
+  deleteNotification: removeNotification,
+  deleteAllNotifications: removeAllNotifications,
 } = require("../db/repository");
 
 const listNotificationsSchema = z.object({
@@ -90,12 +92,31 @@ async function markAllMessageNotificationsRead(req, res) {
   return res.status(204).send();
 }
 
+async function deleteNotification(req, res) {
+  const { id } = req.validated.params;
+  const deleted = await removeNotification(id, req.auth.userId);
+  if (!deleted) return res.status(404).json({ message: "Notification not found" });
+
+  // notify client
+  publishToUser(req.auth.userId, "notification.deleted", { id: deleted.id });
+  return res.status(204).send();
+}
+
+async function deleteAllNotifications(req, res) {
+  const deleted = await removeAllNotifications(req.auth.userId);
+  // notify client that bulk delete happened
+  publishToUser(req.auth.userId, "notification.bulkDeleted", { userId: req.auth.userId });
+  return res.status(204).send();
+}
+
 module.exports = {
   listMyNotifications,
   markNotificationRead,
   markAllNotificationsRead,
   markMessageNotificationsReadBySender,
   markAllMessageNotificationsRead,
+  deleteNotification,
+  deleteAllNotifications,
   listNotificationsSchema,
   notificationIdSchema,
   fromUserIdSchema,

@@ -119,6 +119,26 @@ const Notifications = () => {
     }
   };
 
+  const deleteNotification = async (id) => {
+    try {
+      await api(`/notifications/${id}`, { method: "DELETE" });
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      toast({ title: "Deleted", description: "Notification removed." });
+    } catch (err) {
+      toast({ title: "Delete failed", description: err?.message || "Could not delete notification.", variant: "destructive" });
+    }
+  };
+
+  const deleteAll = async () => {
+    try {
+      await api(`/notifications`, { method: "DELETE" });
+      setNotifications([]);
+      toast({ title: "Deleted", description: "All notifications removed." });
+    } catch (err) {
+      toast({ title: "Delete failed", description: err?.message || "Could not delete notifications.", variant: "destructive" });
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
@@ -127,13 +147,15 @@ const Notifications = () => {
         <div className="container mx-auto px-4">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center justify-between mb-8">
-              <div>
-                <h1 className="text-4xl font-bold mb-2">Notifications</h1>
-                <p className="text-muted-foreground">Stay updated with your bookings and messages</p>
+              <div />
+              <div className="flex items-center gap-3">
+                <Button variant="outline" onClick={markAllAsRead} disabled={unreadCount === 0 || loading}>
+                  Mark all as read
+                </Button>
+                <Button variant="ghost" onClick={deleteAll} disabled={notifications.length === 0 || loading}>
+                  Delete all
+                </Button>
               </div>
-              <Button variant="outline" onClick={markAllAsRead} disabled={unreadCount === 0 || loading}>
-                Mark all as read
-              </Button>
             </div>
 
             <div className="space-y-4">
@@ -162,12 +184,34 @@ const Notifications = () => {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-2">
-                            <h3 className="font-semibold">{notification.title}</h3>
-                            {!notification.isRead ? (
-                              <Badge variant="default" className="flex-shrink-0">New</Badge>
-                            ) : null}
+                            {/* For booking notifications show the status (accepted/completed/etc) as the heading when available */}
+                            <h3 className="font-semibold">
+                              {notification.type === "booking"
+                                ? (notification.payload?.status || extractStatusFromMessage(notification.message) || notification.title)
+                                : notification.title}
+                            </h3>
+                            <div className="flex items-center gap-2">
+                              {!notification.isRead ? (
+                                <Badge variant="default" className="flex-shrink-0">New</Badge>
+                              ) : null}
+                              <Button variant="ghost" size="sm" onClick={() => deleteNotification(notification.id)}>Delete</Button>
+                            </div>
                           </div>
-                          <p className="text-muted-foreground text-sm mb-2">{notification.message}</p>
+
+                          <p className="text-muted-foreground text-sm mb-2">
+                            {notification.type === "booking" ? (
+                              <>
+                                <span className="font-semibold">{notification.payload?.providerName || notification.payload?.provider?.name || "Provider"}</span>
+                                {notification.payload?.service || notification.booking?.service ? (
+                                  <span className="text-sm text-muted-foreground ml-2">— {notification.payload?.service || notification.booking?.service}</span>
+                                ) : null}
+                                <div className="text-sm text-muted-foreground mt-1">{cleanedBookingText(notification.message)}</div>
+                              </>
+                            ) : (
+                              notification.message
+                            )}
+                          </p>
+
                           <div className="flex items-center justify-between">
                             <p className="text-xs text-muted-foreground">
                               {new Date(notification.createdAt).toLocaleString()}
@@ -205,4 +249,29 @@ const Notifications = () => {
 
 
 export default Notifications;
+
+// Helpers
+function extractStatusFromMessage(message = "") {
+  try {
+    const m = message.match(/status changed to\s*([a-zA-Z]+)/i);
+    return m ? capitalize(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function cleanedBookingText(message = "") {
+  // Remove booking ids like `book_xxx` and status phrases, then trim
+  let txt = message || "";
+  txt = txt.replace(/book_[a-f0-9\-]+/gi, "");
+  txt = txt.replace(/status changed to\s*[a-zA-Z]+/gi, "");
+  // Remove long hex tokens
+  txt = txt.replace(/\b[a-f0-9]{8,}\b/gi, "");
+  return txt.trim().replace(/^[:,\-\s]+|[:,\-\s]+$/g, "");
+}
+
+function capitalize(s) {
+  if (!s) return s;
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 

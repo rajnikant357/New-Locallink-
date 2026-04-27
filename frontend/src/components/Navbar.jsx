@@ -15,10 +15,30 @@ const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [instantMode, setInstantMode] = useState(false);
+  const [providerId, setProviderId] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
-  // Scroll to top when route changes
+  useEffect(() => {
+    let mounted = true;
+    if (isAuthenticated && user?.type === "provider") {
+      (async () => {
+        try {
+          const res = await api('/providers');
+          const providers = res.providers || [];
+          const mine = providers.find((p) => p.userId === user.id);
+          if (!mounted) return;
+          if (mine) {
+            setProviderId(mine.id);
+            setInstantMode(Boolean(mine.isActive));
+          }
+        } catch (e) {
+        }
+      })();
+    }
+    return () => { mounted = false; };
+  }, [isAuthenticated, user?.id]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, [location.pathname]);
@@ -114,7 +134,6 @@ const Navbar = () => {
         <div className="container px-0 mx-auto">
           <div className="flex h-10 items-center justify-between w-full [@media(min-width:900px)]:h-16">
             <div className="flex items-center gap-3">
-              {/* Back arrow in circle, hidden on home page */}
               {location.pathname !== "/" && (
                 <button
                   className="w-9 h-9 flex items-center justify-center rounded-full bg-gray-200 text-gray-700 ml-[5px] mr-[5px] [@media(min-width:900px)]:hidden"
@@ -128,8 +147,6 @@ const Navbar = () => {
                 <span style={{ color: '#184bb8ff' }}>Local</span><span style={{ color: '#b379ffff' }}>Link</span>
               </Link>
             </div>
-
-            {/* Desktop Links - hidden above 900px, mobile-first */}
             <div className="hidden [@media(min-width:900px)]:flex items-center gap-8">
               <Link to="/" className="text-foreground hover:text-primary transition-colors">Home</Link>
               <Link to="/categories" className="text-foreground hover:text-primary transition-colors">Categories</Link>
@@ -151,7 +168,19 @@ const Navbar = () => {
               {isAuthenticated ? (
                 <>
                   {user?.type === "provider" && (
-                    <InstantModeToggle onToggle={setInstantMode} />
+                    <InstantModeToggle
+                      checked={instantMode}
+                      onToggle={async (checked) => {
+                        setInstantMode(checked);
+                        try {
+                          if (!providerId) return;
+                          await api(`/providers/${providerId}`, { method: 'PATCH', body: JSON.stringify({ isActive: checked }) });
+                        } catch (err) {
+                          setInstantMode((prev) => !prev);
+                          toast({ title: 'Could not update availability', description: err?.message || 'Try again.', variant: 'destructive' });
+                        }
+                      }}
+                    />
                   )}
                   <Link to="/notifications">
                     <Button variant="ghost" size="icon" className="relative">
@@ -163,7 +192,7 @@ const Navbar = () => {
                       )}
                     </Button>
                   </Link>
-                  <Link to="/messages" state={{ backgroundLocation: location }}>
+                  <Link to="/messages" state={{ backgroundLocation: location, openConversations: true }}>
                     <Button variant="ghost" size="icon" aria-label="Messages" className="relative">
                       <MessageSquare className="h-5 w-5" />
                       {unreadMessages > 0 && (
@@ -184,7 +213,6 @@ const Navbar = () => {
                   <Button className="h-7 w-14 px-5 text-xs font-medium">Sign In</Button>
                 </Link>
               )}
-              {/* Hamburger menu for tablet view (768px - 900px) */}
             </div>
           </div>
         </div>

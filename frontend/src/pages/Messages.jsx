@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/AuthContext";
-import { ChevronDown, MessageSquare } from "lucide-react";
+import { ChevronDown, MessageSquare, Menu as MenuIcon, X as XIcon } from "lucide-react";
 import { api } from "@/lib/api";
 import { toast } from "@/hooks/use-toast";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
@@ -30,6 +30,9 @@ const Messages = () => {
   const location = useLocation();
 
   const [conversations, setConversations] = useState([]);
+  const [conversationSearch, setConversationSearch] = useState("");
+  const [isMobile, setIsMobile] = useState(typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false);
+  const [showConversationsDrawer, setShowConversationsDrawer] = useState(() => Boolean(location.state?.openConversations) && (typeof window !== "undefined" ? window.matchMedia("(max-width: 767px)").matches : false));
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [messageText, setMessageText] = useState("");
@@ -106,13 +109,13 @@ const Messages = () => {
 
         const preselectedId = location.state?.toUserId;
         const preselectedName = location.state?.toUserName;
+        const openConversationsOnly = Boolean(location.state?.openConversations);
 
         if (preselectedId) {
           setSelectedUser({ id: preselectedId, name: preselectedName || "Conversation" });
           return;
         }
-
-        if ((response.conversations || []).length > 0) {
+        if (!openConversationsOnly && (response.conversations || []).length > 0) {
           setSelectedUser(response.conversations[0].user);
         }
       } catch (err) {
@@ -134,6 +137,18 @@ const Messages = () => {
       mounted = false;
     };
   }, [authLoading, isAuthenticated, location.state]);
+
+  useEffect(() => {
+    // Keep `isMobile` in sync with viewport changes so drawer vs full overlay behaves correctly
+    const m = window.matchMedia("(max-width: 767px)");
+    const handler = (e) => setIsMobile(e.matches);
+    if (m.addEventListener) m.addEventListener("change", handler);
+    else m.addListener(handler);
+    return () => {
+      if (m.removeEventListener) m.removeEventListener("change", handler);
+      else m.removeListener(handler);
+    };
+  }, []);
 
   useEffect(() => {
     if (!selectedUser?.id || authLoading || !isAuthenticated) {
@@ -454,6 +469,83 @@ const Messages = () => {
     }
   }, isAuthenticated);
 
+  // On mobile, when no conversation is selected (initial open), always render the
+  // conversations drawer instead of the full overlay. Selecting a conversation
+  // will close the drawer and show the conversation view.
+  if (isMobile && !selectedUser) {
+    return (
+      <div className="absolute inset-0 z-50 md:hidden p-3">
+        <div className="w-full h-full bg-background border rounded-lg overflow-auto">
+          <div className="p-3 border-b flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-5 w-5 text-primary" />
+              <div className="font-semibold">Messages</div>
+            </div>
+            <button onClick={closeMessagesOverlay} aria-label="Close conversations">
+              <XIcon className="h-5 w-5" />
+            </button>
+          </div>
+          <div className="p-3">
+            <Input
+              placeholder="Search users or messages..."
+              value={conversationSearch}
+              onChange={(e) => setConversationSearch(e.target.value)}
+            />
+          </div>
+          <div className="p-3">
+            {loadingConversations ? (
+              Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-12 w-full" />)
+            ) : conversations.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No conversations yet.</p>
+            ) : (
+              (() => {
+                const q = conversationSearch.trim().toLowerCase();
+                const filtered = q
+                  ? conversations.filter((conversation) => {
+                      const name = (conversation.user?.name || "").toLowerCase();
+                      const last = (conversation.lastMessage?.text || "").toLowerCase();
+                      return name.includes(q) || last.includes(q);
+                    })
+                  : conversations;
+
+                if (filtered.length === 0 && conversationSearch.trim()) {
+                  const matches = (recipientOptions || []).filter((r) => `${r.name || ""} ${r.email || ""}`.toLowerCase().includes(conversationSearch.trim().toLowerCase()));
+                  if (matches.length > 0) {
+                    return matches.map((recipient) => (
+                      <button
+                        key={recipient.id}
+                        className={`w-full text-left p-3 rounded-lg border hover:bg-muted/40 mb-2`}
+                        onClick={() => { setSelectedUser({ id: recipient.id, name: recipient.name }); setShowConversationsDrawer(false); }}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-medium text-sm">{recipient.name}</p>
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">Start a new conversation</p>
+                      </button>
+                    ));
+                  }
+                }
+
+                return filtered.map((conversation) => (
+                  <button
+                    key={conversation.user?.id || conversation.lastMessage?.id}
+                    className={`w-full text-left p-3 rounded-lg border mb-2 hover:bg-muted/40`}
+                    onClick={() => { setSelectedUser(conversation.user); setShowConversationsDrawer(false); }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-medium text-sm">{conversation.user?.name || "Unknown user"}</p>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{conversation.lastMessage?.text || "No messages"}</p>
+                  </button>
+                ));
+              })()
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-background/40 backdrop-blur-sm p-3 md:p-6"
@@ -466,7 +558,8 @@ const Messages = () => {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <Card className="w-full h-full md:rounded-2xl md:shadow-2xl bg-background grid md:grid-cols-[280px_1fr] min-h-0">
-          <div className="border-r min-h-0 flex flex-col">
+          {/* Conversations panel - visible on md+, hidden on mobile (moved into drawer) */}
+          <div className="border-r min-h-0 flex flex-col hidden md:flex">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <MessageSquare className="h-6 w-6 text-primary" />
@@ -474,43 +567,172 @@ const Messages = () => {
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0 space-y-2 overflow-y-auto min-h-0 flex-1">
+              <div className="mb-2">
+                <Input
+                  placeholder="Search users or messages..."
+                  value={conversationSearch}
+                  onChange={(e) => setConversationSearch(e.target.value)}
+                />
+              </div>
+
               {loadingConversations ? (
                 Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-12 w-full" />)
               ) : conversations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">No conversations yet.</p>
               ) : (
-                conversations.map((conversation) => {
-                  const isActive = selectedUser?.id === conversation.user?.id;
-                  return (
-                    <button
-                      key={conversation.user?.id || conversation.lastMessage?.id}
-                      className={`w-full text-left p-3 rounded-lg border ${isActive ? "bg-primary/10 border-primary/40" : "hover:bg-muted/40"}`}
-                      onClick={() => setSelectedUser(conversation.user)}
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-medium text-sm">{conversation.user?.name || "Unknown user"}</p>
-                        {(unreadByUserId[conversation.user?.id] || 0) > 0 ? (
-                          <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] leading-[18px] text-center">
-                            {unreadByUserId[conversation.user?.id] > 99 ? "99+" : unreadByUserId[conversation.user?.id]}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className="text-xs text-muted-foreground truncate">{conversation.lastMessage?.text || "No messages"}</p>
-                    </button>
-                  );
-                })
+                <>
+                  {(() => {
+                    const q = conversationSearch.trim().toLowerCase();
+                    const filtered = q
+                      ? conversations.filter((conversation) => {
+                          const name = (conversation.user?.name || "").toLowerCase();
+                          const last = (conversation.lastMessage?.text || "").toLowerCase();
+                          return name.includes(q) || last.includes(q);
+                        })
+                      : conversations;
+
+                    // if no conversations match, show matching recipients to start a new chat
+                    if (filtered.length === 0 && conversationSearch.trim()) {
+                      const matches = (recipientOptions || []).filter((r) => `${r.name || ""} ${r.email || ""}`.toLowerCase().includes(conversationSearch.trim().toLowerCase()));
+                      if (matches.length > 0) {
+                        return matches.map((recipient) => (
+                          <button
+                            key={recipient.id}
+                            className={`w-full text-left p-3 rounded-lg border hover:bg-muted/40`}
+                            onClick={() => setSelectedUser({ id: recipient.id, name: recipient.name })}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="font-medium text-sm">{recipient.name}</p>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">Start a new conversation</p>
+                          </button>
+                        ));
+                      }
+                    }
+
+                    return filtered.map((conversation) => {
+                      const isActive = selectedUser?.id === conversation.user?.id;
+                      return (
+                        <button
+                          key={conversation.user?.id || conversation.lastMessage?.id}
+                          className={`w-full text-left p-3 rounded-lg border ${isActive ? "bg-primary/10 border-primary/40" : "hover:bg-muted/40"}`}
+                          onClick={() => setSelectedUser(conversation.user)}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-sm">{conversation.user?.name || "Unknown user"}</p>
+                            {(unreadByUserId[conversation.user?.id] || 0) > 0 ? (
+                              <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] leading-[18px] text-center">
+                                {unreadByUserId[conversation.user?.id] > 99 ? "99+" : unreadByUserId[conversation.user?.id]}
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{conversation.lastMessage?.text || "No messages"}</p>
+                        </button>
+                      );
+                    });
+                  })()}
+                </>
               )}
             </CardContent>
           </div>
 
+          {/* Mobile drawer for conversations (visible when hamburger is clicked) */}
+          {showConversationsDrawer ? (
+            <div className="absolute inset-0 z-50 md:hidden p-3">
+              <div className="w-full h-full bg-background border rounded-lg overflow-auto">
+                <div className="p-3 border-b flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="h-5 w-5 text-primary" />
+                    <div className="font-semibold">Messages</div>
+                  </div>
+                  <button onClick={closeMessagesOverlay} aria-label="Close conversations">
+                    <XIcon className="h-5 w-5" />
+                  </button>
+                </div>
+                <div className="p-3">
+                  <Input
+                    placeholder="Search users or messages..."
+                    value={conversationSearch}
+                    onChange={(e) => setConversationSearch(e.target.value)}
+                  />
+                </div>
+                <div className="p-3">
+                  {loadingConversations ? (
+                    Array.from({ length: 5 }).map((_, idx) => <Skeleton key={idx} className="h-12 w-full" />)
+                  ) : conversations.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No conversations yet.</p>
+                  ) : (
+                    (() => {
+                      const q = conversationSearch.trim().toLowerCase();
+                      const filtered = q
+                        ? conversations.filter((conversation) => {
+                            const name = (conversation.user?.name || "").toLowerCase();
+                            const last = (conversation.lastMessage?.text || "").toLowerCase();
+                            return name.includes(q) || last.includes(q);
+                          })
+                        : conversations;
+
+                      if (filtered.length === 0 && conversationSearch.trim()) {
+                        const matches = (recipientOptions || []).filter((r) => `${r.name || ""} ${r.email || ""}`.toLowerCase().includes(conversationSearch.trim().toLowerCase()));
+                        if (matches.length > 0) {
+                          return matches.map((recipient) => (
+                            <button
+                              key={recipient.id}
+                              className={`w-full text-left p-3 rounded-lg border hover:bg-muted/40 mb-2`}
+                              onClick={() => { setSelectedUser({ id: recipient.id, name: recipient.name }); setShowConversationsDrawer(false); }}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="font-medium text-sm">{recipient.name}</p>
+                              </div>
+                              <p className="text-xs text-muted-foreground truncate">Start a new conversation</p>
+                            </button>
+                          ));
+                        }
+                      }
+
+                      return filtered.map((conversation) => (
+                        <button
+                          key={conversation.user?.id || conversation.lastMessage?.id}
+                          className={`w-full text-left p-3 rounded-lg border mb-2 hover:bg-muted/40`}
+                          onClick={() => { setSelectedUser(conversation.user); setShowConversationsDrawer(false); }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-sm">{conversation.user?.name || "Unknown user"}</p>
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate">{conversation.lastMessage?.text || "No messages"}</p>
+                        </button>
+                      ));
+                    })()
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : null}
+
           <div className="flex flex-col h-full min-h-0">
             <CardHeader className="border-b">
-              <CardTitle className="text-base">{selectedUser ? selectedUser.name : "Select a conversation"}</CardTitle>
+              <div className="flex items-center justify-between w-full">
+                <div className="w-10 flex items-center">
+                  <button className="md:hidden" onClick={() => setShowConversationsDrawer(true)} aria-label="Open conversations">
+                    <MenuIcon className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="flex-1 text-center">
+                  <CardTitle className="text-base">{selectedUser ? selectedUser.name : "Messages"}</CardTitle>
+                </div>
+
+                <div className="w-10 flex items-center justify-end">
+                  <button onClick={closeMessagesOverlay} aria-label="Close messages">
+                    <XIcon className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
             </CardHeader>
 
             <CardContent className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
               {!selectedUser ? (
-                <p className="text-sm text-muted-foreground">Choose a conversation from the left panel.</p>
+                null
               ) : loadingMessages ? (
                 Array.from({ length: 4 }).map((_, idx) => <Skeleton key={idx} className="h-14 w-full" />)
               ) : sortedMessages.length === 0 ? (

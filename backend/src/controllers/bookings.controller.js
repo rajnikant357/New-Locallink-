@@ -61,20 +61,17 @@ async function createBooking(req, res) {
   });
 
   if (provider.userId) {
-    await createNotification({
+    const notification = await createNotification({
       id: `notif_${crypto.randomUUID()}`,
       userId: provider.userId,
       bookingId: booking.id,
       title: "New booking request",
       message: `${service} requested for ${new Date(scheduledFor).toLocaleString()}`,
       type: "booking",
+      payload: { providerName: provider.name, service, providerCategory: provider.category },
     });
     publishToUser(provider.userId, "booking.new", { booking });
-    publishToUser(provider.userId, "notification.new", {
-      title: "New booking request",
-      type: "booking",
-      bookingId: booking.id,
-    });
+    publishToUser(provider.userId, "notification.new", { notification });
   }
 
   publishToUser(booking.customerId, "booking.new", { booking });
@@ -111,36 +108,35 @@ async function updateBookingStatus(req, res) {
 
   const updatedBooking = await persistUpdateBookingStatus(id, status);
 
+  // Try to enrich providerName in payload if we can fetch provider
+  let providerForPayload = null;
+  try {
+    providerForPayload = await getProviderById(updatedBooking.providerId);
+  } catch (err) {
+    // ignore
+  }
+
   const receiverId = isCustomer ? updatedBooking.providerUserId : updatedBooking.customerId;
+  let statusNotification = null;
   if (receiverId) {
-    await createNotification({
+    statusNotification = await createNotification({
       id: `notif_${crypto.randomUUID()}`,
       userId: receiverId,
       bookingId: updatedBooking.id,
       title: "Booking status updated",
       message: `Booking ${updatedBooking.id} status changed to ${status}`,
       type: "booking",
-      payload: { status },
+      payload: { status, providerName: providerForPayload ? providerForPayload.name : null, service: updatedBooking.service, providerCategory: providerForPayload ? providerForPayload.category : null },
     });
   }
 
   if (updatedBooking.customerId) {
     publishToUser(updatedBooking.customerId, "booking.updated", { booking: updatedBooking });
-    publishToUser(updatedBooking.customerId, "notification.new", {
-      title: "Booking status updated",
-      type: "booking",
-      bookingId: updatedBooking.id,
-      status: updatedBooking.status,
-    });
+    if (statusNotification) publishToUser(updatedBooking.customerId, "notification.new", { notification: statusNotification });
   }
   if (updatedBooking.providerUserId) {
     publishToUser(updatedBooking.providerUserId, "booking.updated", { booking: updatedBooking });
-    publishToUser(updatedBooking.providerUserId, "notification.new", {
-      title: "Booking status updated",
-      type: "booking",
-      bookingId: updatedBooking.id,
-      status: updatedBooking.status,
-    });
+    if (statusNotification) publishToUser(updatedBooking.providerUserId, "notification.new", { notification: statusNotification });
   }
 
   return res.json({ booking: updatedBooking });

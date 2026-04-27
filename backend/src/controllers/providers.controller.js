@@ -4,6 +4,7 @@ const { assertProviderProfileAllowed } = require("../utils/role-conflicts");
 const {
   listProviders: fetchProviders,
   getProviderById: fetchProviderById,
+  countCompletedBookingsForProvider,
   createProvider: persistProvider,
   updateProvider: persistProviderUpdate,
   listReviewsByProvider,
@@ -111,6 +112,7 @@ const updateProviderSchema = z.object({
       certificateUrl: z.string().trim().max(900000).optional(),
       socialLinks: socialLinksSchema,
       isVerified: z.boolean().optional(),
+      isActive: z.boolean().optional(),
     })
     .refine((value) => Object.keys(value).length > 0, "At least one field is required"),
   query: z.object({}).optional(),
@@ -262,6 +264,14 @@ async function listProviders(req, res) {
     results = results.slice(0, limit);
   }
 
+  // Attach completed jobs count for each provider when possible (small result sets)
+  try {
+    const counts = await Promise.all(results.map((p) => countCompletedBookingsForProvider(p.id)));
+    results = results.map((p, idx) => ({ ...p, completedJobs: counts[idx] }));
+  } catch (err) {
+    // ignore counting errors
+  }
+
   return res.json({ providers: results });
 }
 
@@ -283,7 +293,12 @@ async function getProviderById(req, res) {
       }
     : null;
 
-  return res.json({ provider: { ...provider, contact } });
+  try {
+    const completedJobs = await countCompletedBookingsForProvider(provider.id);
+    return res.json({ provider: { ...provider, contact, completedJobs } });
+  } catch (err) {
+    return res.json({ provider: { ...provider, contact } });
+  }
 }
 
 async function listProviderReviews(req, res) {

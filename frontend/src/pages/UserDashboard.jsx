@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Navbar from "@/components/Navbar";
-import ChatbotButton from "@/components/ChatbotButton";
+// ChatbotButton hidden temporarily
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -159,7 +159,6 @@ const UserDashboard = () => {
       </div>
       <>
         <Footer />
-        <ChatbotButton />
       </>
     </div>
   );

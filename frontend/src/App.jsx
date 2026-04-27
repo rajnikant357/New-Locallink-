@@ -5,7 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Navigate, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
-import ChatbotButton from "@/components/ChatbotButton";
+// ChatbotButton hidden temporarily
 import BottomNavbar from "@/components/BottomNavbar";
 import { useAuth } from "./contexts/AuthContext";
 
@@ -120,8 +120,7 @@ const AppRoutes = () => {
 
   return (
     <>
-      {/* debug status removed: previously showed "App running" in top-right */}
-      <ChatbotButton />
+      {/* Chatbot hidden: button removed from UI */}
 
       <Suspense fallback={<PageFallback />}>
         <Routes location={backgroundLocation || location}>

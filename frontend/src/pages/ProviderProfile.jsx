@@ -12,6 +12,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { Textarea } from "@/components/ui/textarea";
 import SocialLinksRow from "@/components/providers/SocialLinksRow";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 const ProviderProfile = () => {
   const { id } = useParams();
@@ -137,6 +139,94 @@ const ProviderProfile = () => {
     }
   };
 
+  const handleCallNow = async () => {
+    if (!provider?.contact?.phone) {
+      toast({ title: "Phone unavailable", description: "This provider has not added a phone number.", variant: "destructive" });
+      return;
+    }
+
+    if (!isAuthenticated) {
+      toast({ title: "Authentication required", description: "Please sign in to contact this provider.", variant: "destructive" });
+      navigate("/auth");
+      return;
+    }
+
+    // Attempt to send a quick message notifying provider and then open phone dialer
+    try {
+      if (provider.contact?.userId) {
+        await api("/messages", {
+          method: "POST",
+          body: JSON.stringify({
+            toUserId: provider.contact.userId,
+            text: `Customer initiated a call via profile for ${provider.name}. Please check your phone.`,
+          }),
+        });
+      }
+    } catch (err) {
+      // non-fatal
+    }
+
+    // Open device dialer
+    window.location.href = `tel:${provider.contact.phone}`;
+  };
+
+  const handleRequestVisit = async () => {
+    if (!isAuthenticated) {
+      toast({ title: "Authentication required", description: "Please sign in to request a visit.", variant: "destructive" });
+      navigate("/auth");
+      return;
+    }
+
+    if (!navigator.geolocation) {
+      toast({ title: "Location unavailable", description: "Your browser doesn't support location sharing.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      toast({ title: "Locating...", description: "Allow location access to request a visit." });
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const mapsLink = `https://maps.google.com/?q=${latitude},${longitude}`;
+
+        // Create a hurry request so nearby providers (including this one) are notified
+        try {
+          await api("/hurry", {
+            method: "POST",
+            body: JSON.stringify({
+              service: provider.category || provider.name || "On-demand visit",
+              location: mapsLink,
+              notes: `Requested from provider profile for provider ${provider.id}`,
+              durationSeconds: 120,
+            }),
+          });
+        } catch (err) {
+          // fallback ignore
+        }
+
+        // Send a direct message to the provider with the exact location (if available)
+        try {
+          if (provider.contact?.userId) {
+            await api("/messages", {
+              method: "POST",
+              body: JSON.stringify({
+                toUserId: provider.contact.userId,
+                text: `Customer at ${mapsLink} requests an immediate visit for ${provider.category || provider.name}.`,
+              }),
+            });
+          }
+        } catch (err) {
+          // ignore
+        }
+
+        toast({ title: "Visit requested", description: "Provider(s) notified with your location." });
+      }, (err) => {
+        toast({ title: "Location denied", description: "Could not access your location.", variant: "destructive" });
+      }, { enableHighAccuracy: true, timeout: 10000 });
+    } catch (err) {
+      toast({ title: "Request failed", description: err?.message || "Could not request visit.", variant: "destructive" });
+    }
+  };
+
   const openChat = () => {
     if (!provider?.contact?.userId) {
       toast({
@@ -237,6 +327,8 @@ const ProviderProfile = () => {
                       <div className="flex items-center gap-1 mt-1">
                         <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
                         <span className="font-semibold">{provider.rating || "New"}</span>
+                        <span className="text-sm text-muted-foreground ml-2">•</span>
+                        <span className="text-sm text-muted-foreground ml-2">{(provider.completedJobs ?? provider.reviews ?? 0) + " jobs"}</span>
                       </div>
                     </div>
                   </div>
@@ -270,6 +362,7 @@ const ProviderProfile = () => {
                     <h3 className="font-semibold">Pricing</h3>
                     <p className="text-sm text-muted-foreground">Starting from <span className="font-semibold text-foreground">Rs {provider.priceMin}/visit</span></p>
                     <p className="text-sm text-muted-foreground">Reviews: {provider.reviews || 0}</p>
+                    <p className="text-sm text-muted-foreground">Jobs completed: {provider.completedJobs ?? provider.reviews ?? 0}</p>
                   </div>
                 </div>
 
@@ -341,6 +434,8 @@ const ProviderProfile = () => {
 
                 <div className="flex flex-wrap gap-3">
                   <Button onClick={openChat}><MessageSquare className="h-4 w-4 mr-2" />Message</Button>
+                  <Button onClick={handleCallNow} variant="outline">Call Now</Button>
+                  <Button onClick={handleRequestVisit} variant="secondary">Request Visit</Button>
                   <Button variant="secondary" onClick={handleBookNow}>Book Now</Button>
                 </div>
               </CardContent>

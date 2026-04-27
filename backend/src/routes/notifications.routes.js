@@ -8,6 +8,8 @@ const {
   markAllNotificationsRead,
   markMessageNotificationsReadBySender,
   markAllMessageNotificationsRead,
+  deleteNotification,
+  deleteAllNotifications,
   listNotificationsSchema,
   notificationIdSchema,
   fromUserIdSchema,
@@ -22,5 +24,7 @@ router.patch("/messages/read-all", asyncHandler(markAllMessageNotificationsRead)
 router.patch("/messages/:fromUserId/read", validate(fromUserIdSchema), asyncHandler(markMessageNotificationsReadBySender));
 router.patch("/:id/read", validate(notificationIdSchema), asyncHandler(markNotificationRead));
 router.patch("/read-all", asyncHandler(markAllNotificationsRead));
+router.delete("/:id", validate(notificationIdSchema), asyncHandler(deleteNotification));
+router.delete("/", asyncHandler(deleteAllNotifications));
 
 module.exports = router;

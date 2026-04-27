@@ -6,28 +6,31 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 
-const InstantModeToggle = ({ onToggle }) => {
-  const [instantMode, setInstantMode] = useState(false);
+const InstantModeToggle = ({ checked = false, onToggle }) => {
+  const [instantModeLocal, setInstantModeLocal] = useState(checked);
 
-  const handleToggle = (checked) => {
-    setInstantMode(checked);
-    onToggle(checked);
+  // keep local state in sync when parent updates
+  if (instantModeLocal !== checked) setInstantModeLocal(checked);
+
+  const handleToggle = (val) => {
+    setInstantModeLocal(val);
+    if (typeof onToggle === "function") onToggle(val);
   };
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <Button
-          variant={instantMode ? "default" : "ghost"}
+          variant={instantModeLocal ? "default" : "ghost"}
           size="icon"
           className={`relative ${
-            instantMode
+            instantModeLocal
               ? "bg-orange-500 hover:bg-orange-600 text-white"
               : ""
           }`}
         >
-          <Zap className={`h-5 w-5 ${instantMode ? "animate-pulse" : ""}`} />
-          {instantMode && (
+          <Zap className={`h-5 w-5 ${instantModeLocal ? "animate-pulse" : ""}`} />
+          {instantModeLocal && (
             <span className="absolute -top-1 -right-1 h-3 w-3 bg-green-500 rounded-full border-2 border-background" />
           )}
         </Button>
@@ -55,7 +58,7 @@ const InstantModeToggle = ({ onToggle }) => {
             </div>
             <Switch
               id="instant-mode"
-              checked={instantMode}
+              checked={instantModeLocal}
               onCheckedChange={handleToggle}
               className="data-[state=checked]:bg-orange-500"
             />
