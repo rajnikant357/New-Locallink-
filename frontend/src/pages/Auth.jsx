@@ -232,7 +232,7 @@ const Auth = () => {
                       id="signup-name"
                       value={signUpData.name}
                       onChange={(e) => setSignUpData({...signUpData, name: e.target.value})}
-                      placeholder="John Doe"
+                      placeholder="Your name here"
                       required
                     />
                   </div>
@@ -269,7 +269,7 @@ const Auth = () => {
                         type={showSignUpPassword ? "text" : "password"}
                         value={signUpData.password}
                         onChange={(e) => setSignUpData({...signUpData, password: e.target.value})}
-                        placeholder="••••••••"
+                        placeholder="**********"
                         required
                         className="pr-10"
                       />
@@ -293,7 +293,7 @@ const Auth = () => {
                         type={showConfirmPassword ? "text" : "password"}
                         value={signUpData.confirmPassword}
                         onChange={(e) => setSignUpData({...signUpData, confirmPassword: e.target.value})}
-                        placeholder="••••••••"
+                        placeholder="**********"
                         required
                         className="pr-10"
                       />
