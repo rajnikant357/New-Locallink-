@@ -100,6 +100,7 @@ function mapProviderRow(row) {
     skills: row.skills || [],
     rating: row.rating !== null ? Number(row.rating) : 0,
     reviews: row.reviews !== null ? Number(row.reviews) : 0,
+    isActive: row.is_active,
     isVerified: row.is_verified,
     experience: row.experience,
     hourlyRate: row.hourly_rate !== null ? Number(row.hourly_rate) : null,

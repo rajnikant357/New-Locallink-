@@ -156,6 +156,7 @@ async function ensurePostgres() {
       rating NUMERIC,
       reviews INTEGER,
       is_verified BOOLEAN DEFAULT FALSE,
+      is_active BOOLEAN DEFAULT FALSE,
       experience TEXT,
       hourly_rate NUMERIC,
       application_status TEXT DEFAULT 'pending',
@@ -169,6 +170,7 @@ async function ensurePostgres() {
   `);
 
   await pool.query(`ALTER TABLE app_providers ADD COLUMN IF NOT EXISTS billing_type TEXT DEFAULT 'hourly'`);
+  await pool.query(`ALTER TABLE app_providers ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT FALSE`);
   await pool.query(`ALTER TABLE app_providers ADD COLUMN IF NOT EXISTS sub_category TEXT`);
   await pool.query(`ALTER TABLE app_providers ADD COLUMN IF NOT EXISTS application_status TEXT DEFAULT 'pending'`);
   await pool.query(`ALTER TABLE app_providers ADD COLUMN IF NOT EXISTS verification_notes TEXT`);

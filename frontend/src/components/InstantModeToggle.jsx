@@ -64,7 +64,7 @@ const InstantModeToggle = ({ checked = false, onToggle }) => {
             />
           </div>
 
-          {instantMode ? (
+          {instantModeLocal ? (
             <div className="space-y-3">
               <Badge className="bg-green-500 w-full justify-center py-2">
                 ✓ You're Live! Ready for instant jobs
