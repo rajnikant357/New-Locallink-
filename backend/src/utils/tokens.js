@@ -14,23 +14,8 @@ function signAccessToken(user) {
   );
 }
 
-function signRefreshToken(user) {
-  return jwt.sign(
-    {
-      sub: user.id,
-      tokenType: "refresh",
-    },
-    env.refreshTokenSecret,
-    { expiresIn: env.refreshTokenExpiresIn },
-  );
-}
-
 function verifyAccessToken(token) {
   return jwt.verify(token, env.accessTokenSecret);
-}
-
-function verifyRefreshToken(token) {
-  return jwt.verify(token, env.refreshTokenSecret);
 }
 
 function hashToken(token) {
@@ -39,8 +24,6 @@ function hashToken(token) {
 
 module.exports = {
   signAccessToken,
-  signRefreshToken,
   verifyAccessToken,
-  verifyRefreshToken,
   hashToken,
 };

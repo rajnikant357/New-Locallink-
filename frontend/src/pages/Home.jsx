@@ -49,12 +49,49 @@ const DefaultCategoryIcon = Zap;
 
 const Home = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [categories, setCategories] = useState([]);
   const [providers, setProviders] = useState([]);
   const [loadingData, setLoadingData] = useState(true);
   const [serviceQuery, setServiceQuery] = useState("");
   const [locationQuery, setLocationQuery] = useState("");
+
+  const handleBookNow = async (provider) => {
+    if (!isAuthenticated) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to book this provider.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      const scheduledFor = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      await api("/bookings", {
+        method: "POST",
+        body: JSON.stringify({
+          providerId: provider.id,
+          service: provider.category,
+          scheduledFor,
+          notes: `Booking request for ${provider.category}`,
+        }),
+      });
+
+      toast({
+        title: "Booking requested",
+        description: `Booking request sent to ${provider.name}.`,
+      });
+      navigate("/my-bookings");
+    } catch (err) {
+      toast({
+        title: "Booking failed",
+        description: err?.message || "Could not create booking.",
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -390,9 +427,7 @@ const Home = () => {
 
                     <div className="grid grid-cols-2 gap-2">
                       <Button variant="outline" size="sm" className="text-xs md:text-sm h-8 md:h-9" onClick={() => navigate(`/providers/${provider.id}`)}>View Profile</Button>
-                      <Link to={`/category/${slugifyCategoryName(provider.category)}`}>
-                        <Button size="sm" className="text-xs md:text-sm h-8 md:h-9 w-full">Book Now</Button>
-                      </Link>
+                      <Button size="sm" className="text-xs md:text-sm h-8 md:h-9 w-full" onClick={() => handleBookNow(provider)}>Book Now</Button>
                     </div>
                   </CardContent>
                 </Card>

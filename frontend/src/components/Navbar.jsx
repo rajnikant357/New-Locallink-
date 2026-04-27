@@ -106,7 +106,7 @@ const Navbar = () => {
         description: `Booking changed to ${payload.booking.status}.`,
       });
     }
-  });
+  }, isAuthenticated);
 
   return (
     <>

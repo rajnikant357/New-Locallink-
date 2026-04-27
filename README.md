@@ -54,9 +54,11 @@ Notes on deployment & next steps
 
 Production checklist
 - Do NOT commit secrets. Remove any existing secret values from example files and rotate exposed credentials.
-- Provide these env vars in your production environment: `ACCESS_TOKEN_SECRET`, `REFRESH_TOKEN_SECRET`, `DATABASE_URL` (or `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`/`PGPORT`), `FRONTEND_URL`, `CORS_ORIGINS`, and `VITE_API_BASE_URL` (for frontend).
-- Ensure `ACCESS_TOKEN_SECRET` and `REFRESH_TOKEN_SECRET` are strong random values (>=32 chars) and different from one another.
+- Provide these env vars in your production environment: `ACCESS_TOKEN_SECRET`, `DATABASE_URL` (or `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`/`PGPORT`), `FRONTEND_URL`, `CORS_ORIGINS`, and `VITE_API_BASE_URL` (for frontend).
+- Ensure `ACCESS_TOKEN_SECRET` is a strong random value (>=32 chars).
 - Configure CORS and cookie settings for cross-origin deployments: backend sets `credentials: true` and uses `sameSite:none` + `secure` cookies in production — your `CORS_ORIGINS` must include your frontend origin.
+ - Configure CORS and cookie settings for cross-origin deployments: backend sets `credentials: true` and uses `sameSite:none` + `secure` cookies in production — your `CORS_ORIGINS` must include your frontend origin.
+ - Session & tokens note: the project uses server-side sessions instead of storing long-lived refresh tokens on the client. The backend sets an httpOnly session cookie named `ll_session` (server session id) and a short-lived access cookie `ll_access` (JWT). The `/auth/refresh` endpoint expects the `ll_session` cookie to extend the server session and issue a new `ll_access` token. There is no client-side refresh token secret required in production.
 - Update frontend build config: set `VITE_API_BASE_URL` to your backend API base (for example `https://api.example.com/api/v1`) and set Vite `base` when hosting on GitHub Pages or another subpath.
 - Remove or disable dev-only proxies (see `frontend/vite.config.js` `server.proxy`) in production builds.
 
@@ -77,7 +79,6 @@ This project is intended to be deployed as a static frontend (Vercel) and a pers
 - Required environment variables (Render dashboard → Environment):
 	- `DATABASE_URL` = neon pooler URL (postgres://...)
 	- `ACCESS_TOKEN_SECRET` = strong random string (>= 32 chars)
-	- `REFRESH_TOKEN_SECRET` = different strong random string (>= 32 chars)
 	- `NODE_ENV` = `production`
 	- `CORS_ORIGINS` = comma-separated allowed frontend origins (e.g. `https://your-frontend.vercel.app`)
 	- `FRONTEND_URL` = your Vercel frontend URL (optional but helpful for email/reset links)

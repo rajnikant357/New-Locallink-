@@ -44,12 +44,6 @@ async function main() {
       RETURNING id
     `);
 
-    await client.query(`
-      UPDATE app_users
-      SET refresh_token_hashes = '{}'
-      WHERE refresh_token_hashes IS NULL
-    `);
-
     await client.query("COMMIT");
 
     console.log(

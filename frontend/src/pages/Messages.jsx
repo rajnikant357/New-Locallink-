@@ -398,7 +398,7 @@ const Messages = () => {
           return [updated, ...prev.filter((item) => item.user?.id !== otherId)];
         }
         return [updated, ...prev];
-      });
+      }, isAuthenticated);
 
       if (selectedUser?.id === otherId) {
         setMessages((prev) => (prev.some((item) => item.id === incoming.id) ? prev : [...prev, incoming]));
@@ -452,7 +452,7 @@ const Messages = () => {
         }
       }
     }
-  });
+  }, isAuthenticated);
 
   return (
     <div

@@ -1,6 +1,6 @@
 function toSafeUser(user) {
   if (!user) return null;
-  const { passwordHash, refreshTokenHashes, ...rest } = user;
+  const { passwordHash, ...rest } = user;
   return rest;
 }
 

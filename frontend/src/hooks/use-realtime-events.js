@@ -52,6 +52,39 @@ function closeSharedSource() {
 function ensureSharedSource() {
   if (sharedSource) return;
 
+  // If there are no auth cookies present, don't open SSE or seed protected endpoints.
+  try {
+    if (typeof document !== "undefined") {
+      const cookies = document.cookie || "";
+      if (!cookies.includes("ll_session") && !cookies.includes("ll_access")) {
+        // Cookies may be set by the login response slightly after this code runs.
+        // Retry a few times with small delay to avoid a race between login response
+        // and the SSE/poll seed fetches which would otherwise return 401.
+        const retryOpen = (attempt = 1) => {
+          if (attempt > 5) return;
+          setTimeout(() => {
+            const newCookies = document.cookie || "";
+            if (newCookies.includes("ll_session") || newCookies.includes("ll_access")) {
+              // Attempt to open now
+              try {
+                ensureSharedSource();
+              } catch {
+                // ignore
+              }
+              return;
+            }
+            retryOpen(attempt + 1);
+          }, 200 * attempt);
+        };
+
+        retryOpen();
+        return;
+      }
+    }
+  } catch {
+    // ignore environment where document isn't available
+  }
+
   const streamUrl = `${API_BASE_URL}/realtime/stream`;
   const source = new EventSource(streamUrl, { withCredentials: true });
 
@@ -170,11 +203,13 @@ function ensureSharedSource() {
   }, 2000);
 }
 
-export function useRealtimeEvents(onEvent) {
+export function useRealtimeEvents(onEvent, enabled = true) {
   const handlerRef = useRef(onEvent);
   handlerRef.current = onEvent;
 
   useEffect(() => {
+    if (!enabled) return () => {};
+
     const subscriber = (eventName, payload) => {
       handlerRef.current?.(eventName, payload);
     };
@@ -188,5 +223,5 @@ export function useRealtimeEvents(onEvent) {
         closeSharedSource();
       }
     };
-  }, []);
+  }, [enabled]);
 }

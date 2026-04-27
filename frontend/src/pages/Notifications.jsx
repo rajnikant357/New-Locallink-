@@ -1,5 +1,6 @@
 import { useCallback } from "react";
 import { useEffect, useMemo, useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent } from "@/components/ui/card";
@@ -36,6 +37,7 @@ const getIconColor = (type) => {
 const Notifications = () => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
   const unreadCount = useMemo(() => notifications.filter((item) => !item.isRead).length, [notifications]);
 
@@ -43,6 +45,7 @@ const Notifications = () => {
     let mounted = true;
 
     const load = async () => {
+      if (!isAuthenticated && !authLoading) return;
       try {
         setLoading(true);
         const response = await api("/notifications/me");
@@ -69,32 +72,26 @@ const Notifications = () => {
     return () => {
       mounted = false;
     };
+  }, [isAuthenticated, authLoading]);
+
+  const handleRealtime = useCallback((eventName, payload) => {
+    if (eventName === "notification.new") {
+      setNotifications((prev) => [payload.notification, ...prev]);
+      return;
+    }
+
+    if (eventName === "notification.updated" && payload?.notification) {
+      setNotifications((prev) => prev.map((item) => (item.id === payload.notification.id ? payload.notification : item)));
+      return;
+    }
+
+    if (eventName === "notification.bulkUpdated") {
+      setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+      return;
+    }
   }, []);
 
-useRealtimeEvents(handleRealtime);
-
-const handleRealtime = useCallback((eventName, payload) => {
-  if (eventName === "notification.new") {
-    setNotifications((prev) => [
-      payload.notification,
-      ...prev,
-    ]);
-  }
-
-  else if (eventName === "notification.updated" && payload?.notification) {
-    setNotifications((prev) =>
-      prev.map((item) =>
-        item.id === payload.notification.id ? payload.notification : item
-      )
-    );
-  }
-
-  else if (eventName === "notification.bulkUpdated") {
-    setNotifications((prev) =>
-      prev.map((item) => ({ ...item, isRead: true }))
-    );
-  }
-}, []);
+  useRealtimeEvents(handleRealtime, isAuthenticated);
 
   const markAsRead = async (id) => {
     try {

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { api } from "@/lib/api";
+import { api, refreshSession } from "@/lib/api";
 
 const AuthContext = createContext(undefined);
 
@@ -17,9 +17,16 @@ export const AuthProvider = ({ children }) => {
           setUser(response.user);
         }
       } catch (error) {
-        // Don't force-logout on temporary backend throttling/outage.
+        // Try to refresh server-side session once before forcing logout.
         if ((error?.status === 401 || error?.status === 403) && mounted) {
-          setUser(null);
+          try {
+            await refreshSession();
+            const retried = await api("/auth/me");
+            if (mounted) setUser(retried.user);
+          } catch (refreshErr) {
+            // If refresh fails, clear user.
+            if (mounted) setUser(null);
+          }
         }
       } finally {
         if (mounted) {

@@ -28,6 +28,13 @@ router.get("/health", (req, res) => {
 });
 
 router.get("/stats", publicStats);
+// Debug route (non-production only): return parsed cookies to help diagnose cross-site cookie issues
+router.get("/debug/cookies", (req, res) => {
+  if (process.env.NODE_ENV === "production") {
+    return res.status(404).json({ message: "Not found" });
+  }
+  return res.json({ cookies: req.cookies || {} });
+});
 router.post("/payments/subscription", paymentsController.createSubscriptionPayment);
 router.post("/payments/booking", paymentsController.createBookingPayment);
 router.post("/payments/:id/complete", paymentsController.completePayment);

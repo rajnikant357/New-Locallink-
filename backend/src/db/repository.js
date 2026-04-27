@@ -2,7 +2,7 @@ const { pool } = require("./postgres");
 const crypto = require("crypto");
 
 // Default session TTL (ms) used when caller doesn't provide expiresAt.
-const DEFAULT_REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const DEFAULT_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 function camelToSnake(key) {
   return key.replace(/([A-Z])/g, (match) => `_${match.toLowerCase()}`);
@@ -54,7 +54,6 @@ function mapUserRow(row) {
     profileImageUrl: row.profile_image_url,
     isActive: row.is_active,
     passwordHash: row.password_hash,
-    refreshTokenHashes: row.refresh_token_hashes || [],
     data: row.data || {},
     ...extra,
     createdAt: normalizeTimestamp(row.created_at),
@@ -67,7 +66,6 @@ function mapSessionRow(row) {
   return {
     id: row.id,
     userId: row.user_id,
-    tokenHash: row.token_hash,
     userAgent: row.user_agent,
     ipAddress: row.ip_address,
     createdAt: normalizeTimestamp(row.created_at),
@@ -240,65 +238,52 @@ async function getUserById(id) {
   return mapUserRow(rows[0]);
 }
 
-// Session helpers for server-backed refresh tokens
-async function createSession({ id, userId, tokenHash, userAgent = null, ipAddress = null, expiresAt = null }) {
-  const sessionId = id || crypto.randomUUID();
-  // Ensure expiresAt is always a timestamp string — if caller omitted it, compute default TTL.
-  const finalExpiresAt = expiresAt || new Date(Date.now() + DEFAULT_REFRESH_TOKEN_TTL_MS);
+// Session helpers for server-side sessions
+async function createSession({ userId, userAgent = null, ipAddress = null, expiresAt = null }) {
+  const sessionId = crypto.randomUUID();
+  // Ensure expiresAt is always a timestamp string — if caller omitted it, compute default TTL (7 days)
+  const finalExpiresAt = expiresAt || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   const expiresParam = finalExpiresAt instanceof Date ? finalExpiresAt.toISOString() : finalExpiresAt;
 
   const { rows } = await pool.query(
     `
     INSERT INTO user_sessions (
-      id, user_id, token_hash, user_agent, ip_address, expires_at
-    ) VALUES ($1,$2,$3,$4,$5,$6)
+      id, user_id, user_agent, ip_address, expires_at
+    ) VALUES ($1, $2, $3, $4, $5)
     RETURNING *
   `,
-    [sessionId, userId, tokenHash, userAgent, ipAddress, expiresParam],
+    [sessionId, userId, userAgent, ipAddress, expiresParam],
   );
   return mapSessionRow(rows[0]);
 }
 
-async function getSessionByHash(tokenHash) {
+async function getSessionById(sessionId) {
   const { rows } = await pool.query(
-    `SELECT * FROM user_sessions WHERE token_hash = $1 LIMIT 1`,
-    [tokenHash],
+    `SELECT * FROM user_sessions WHERE id = $1 LIMIT 1`,
+    [sessionId],
   );
   return mapSessionRow(rows[0]);
 }
 
-async function rotateSession(sessionId, newTokenHash, newExpiresAt) {
-  // If caller didn't provide a newExpiresAt, extend by default TTL from now.
-  const finalExpiresAt = newExpiresAt || new Date(Date.now() + DEFAULT_REFRESH_TOKEN_TTL_MS);
-  const expiresParam = finalExpiresAt instanceof Date ? finalExpiresAt.toISOString() : finalExpiresAt;
-
+async function revokeSessionById(sessionId) {
   const { rows } = await pool.query(
-    `UPDATE user_sessions SET token_hash = $1, expires_at = $2, created_at = NOW() WHERE id = $3 RETURNING *`,
-    [newTokenHash, expiresParam, sessionId],
+    `UPDATE user_sessions SET revoked = true WHERE id = $1 RETURNING *`,
+    [sessionId],
   );
   return mapSessionRow(rows[0]);
 }
 
-async function revokeSessionByHash(tokenHash) {
+async function updateSessionExpiration(sessionId, expiresAt) {
+  const expiresParam = expiresAt instanceof Date ? expiresAt.toISOString() : expiresAt;
   const { rows } = await pool.query(
-    `UPDATE user_sessions SET revoked = true WHERE token_hash = $1 RETURNING *`,
-    [tokenHash],
+    `UPDATE user_sessions SET expires_at = $1 WHERE id = $2 RETURNING *`,
+    [expiresParam, sessionId],
   );
   return mapSessionRow(rows[0]);
 }
 
 async function pruneExpiredSessions() {
   await pool.query(`DELETE FROM user_sessions WHERE expires_at IS NOT NULL AND expires_at < NOW()`);
-}
-
-async function getUserByRefreshTokenHash(hash) {
-  const { rows } = await pool.query(
-    `
-    SELECT * FROM app_users WHERE $1 = ANY(refresh_token_hashes)
-  `,
-    [hash],
-  );
-  return mapUserRow(rows[0]);
 }
 
 async function getUserByResetTokenHash(hash) {
@@ -377,7 +362,6 @@ async function createUser(values) {
     profileImageUrl,
     isActive = true,
     passwordHash,
-    refreshTokenHashes = [],
     data = {},
   } = values;
   const { rows } = await pool.query(
@@ -392,12 +376,11 @@ async function createUser(values) {
       profile_image_url,
       is_active,
       password_hash,
-      refresh_token_hashes,
       data
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
     RETURNING *
   `,
-    [id, name, email, phone, type, location, profileImageUrl, isActive, passwordHash, refreshTokenHashes, data],
+    [id, name, email, phone, type, location, profileImageUrl, isActive, passwordHash, data],
   );
   return mapUserRow(rows[0]);
 }
@@ -1109,7 +1092,6 @@ async function addHurryResponse(values) {
 module.exports = {
   getUserByEmail,
   getUserById,
-  getUserByRefreshTokenHash,
   getUserByResetTokenHash,
   getUsersByIds,
   listUsers,
@@ -1173,9 +1155,9 @@ module.exports = {
   addHurryResponse,
   // session helpers
   createSession,
-  getSessionByHash,
-  rotateSession,
-  revokeSessionByHash,
+  getSessionById,
+  revokeSessionById,
+  updateSessionExpiration,
   pruneExpiredSessions,
   createPayment,
   getPaymentById,

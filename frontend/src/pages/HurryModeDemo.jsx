@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
 import { api } from "@/lib/api";
 import { useRealtimeEvents } from "@/hooks/use-realtime-events";
 
@@ -26,6 +27,8 @@ const HurryMode = () => {
   const [loading, setLoading] = useState(false);
   const [tick, setTick] = useState(0);
 
+  const { isAuthenticated } = useAuth();
+
   useRealtimeEvents((event, payload) => {
     if (!request) return;
     if (["hurry.accepted", "hurry.cancelled"].includes(event) && payload?.request?.id === request.id) {
@@ -40,7 +43,7 @@ const HurryMode = () => {
     if (event === "hurry.created" && payload?.request?.id === request.id) {
       setRequest(payload.request);
     }
-  });
+  }, isAuthenticated);
 
   useEffect(() => {
     if (!request) return undefined;

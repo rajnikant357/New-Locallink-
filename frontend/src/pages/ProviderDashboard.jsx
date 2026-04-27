@@ -171,7 +171,7 @@ const ProviderDashboard = () => {
     if (eventName === "hurry.accepted" && payload?.request) {
       setHurryRequests((prev) => prev.map((item) => (item.id === payload.request.id ? payload.request : item)));
     }
-  });
+  }, user ? true : false);
 
   if (!user) return null;
 

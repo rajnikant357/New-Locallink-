@@ -160,7 +160,7 @@ const MyBookings = () => {
         return [incoming, ...prev];
       });
     }
-  });
+  }, isAuthenticated);
 
   return (
     <div className="min-h-screen flex flex-col">

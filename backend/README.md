@@ -3,9 +3,8 @@
 Secure JavaScript backend for LocalLink using Express.
 
 ## Features
-- JWT auth with access + refresh flow
+- JWT access tokens plus server-side session store (no client-stored refresh tokens)
 - Password hashing with bcrypt
-- Refresh token rotation and hash storage
 - Helmet, CORS, HPP, rate limiting
 - Request validation with Zod
 - PostgreSQL persistence (`pg`)
@@ -17,17 +16,18 @@ Secure JavaScript backend for LocalLink using Express.
 Required production env vars (examples):
 
 - `ACCESS_TOKEN_SECRET` — strong random secret (>=32 chars)
-- `REFRESH_TOKEN_SECRET` — strong random secret (different from access secret)
 - `DATABASE_URL` or `PGHOST`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`/`PGPORT`
 - `FRONTEND_URL` — URL of your frontend (used for password reset links)
 - `CORS_ORIGINS` — comma-separated allowed origins for CORS (e.g. `https://app.example.com`)
 - `NODE_ENV=production` and `PORT` as needed
 
+Note: this project previously used client-side refresh tokens; that mechanism has been removed. The backend now maintains short-lived access tokens (cookie name `ll_access`) together with a server-side session identified by an httpOnly cookie (`ll_session`). The `/auth/refresh` endpoint accepts the `ll_session` cookie, extends the server session, and issues a new access token. There is no long-lived refresh token stored on the client or in the database.
+
 Optional/operational env vars:
 
 - `PGSSLMODE` / `PGSSL_REJECT_UNAUTHORIZED` — TLS config for Postgres
 - `RATE_LIMIT_WINDOW_MS`, `RATE_LIMIT_MAX`, `AUTH_RATE_LIMIT_MAX`
-- `ACCESS_TOKEN_EXPIRES_IN`, `REFRESH_TOKEN_EXPIRES_IN`
+- `ACCESS_TOKEN_EXPIRES_IN`
 
 Local dev quickstart:
 1. Copy `.env.example` to `.env` and update values for local Postgres.
@@ -44,8 +44,8 @@ Base URL: `http://localhost:4000/api/v1`
 - `POST /auth/register`
 - `POST /auth/login`
 - `POST /auth/register` with `type=admin` requires header `x-admin-bootstrap-key`
-- `POST /auth/refresh`
-- `POST /auth/logout`
+- `POST /auth/refresh` (server-side session refresh — requires `ll_session` cookie)
+- `POST /auth/logout` (revokes server session and clears `ll_session` + `ll_access` cookies)
 - `GET /auth/me`
 - `GET /users/me`
 - `PATCH /users/me`

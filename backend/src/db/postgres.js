@@ -135,7 +135,6 @@ async function ensurePostgres() {
       profile_image_url TEXT,
       is_active BOOLEAN DEFAULT TRUE,
       password_hash TEXT,
-      refresh_token_hashes TEXT[] DEFAULT '{}',
       data JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -319,7 +318,6 @@ async function ensurePostgres() {
     CREATE TABLE IF NOT EXISTS user_sessions (
       id TEXT PRIMARY KEY,
       user_id TEXT REFERENCES app_users(id) ON DELETE CASCADE,
-      token_hash TEXT NOT NULL,
       user_agent TEXT,
       ip_address TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -328,12 +326,13 @@ async function ensurePostgres() {
     )
   `);
 
+  // Drop token_hash column if it exists (migration from old token-based system)
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_user_sessions_userid ON user_sessions(user_id)
+    ALTER TABLE user_sessions DROP COLUMN IF EXISTS token_hash
   `);
 
   await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_user_sessions_tokenhash ON user_sessions(token_hash)
+    CREATE INDEX IF NOT EXISTS idx_user_sessions_userid ON user_sessions(user_id)
   `);
 
   await pool.query(`
